@@ -1,0 +1,38 @@
+{
+  "name": "virnect-skills",
+  "version": "0.1.0",
+  "description": "Codex skills maintained by VIRNECT for issue management and GitHub PR workflows.",
+  "author": {
+    "name": "VIRNECT",
+    "email": "support@virnect.com",
+    "url": "https://virnect.com/"
+  },
+  "homepage": "https://github.com/mkpark-VIRNECT/Skills",
+  "repository": "https://github.com/mkpark-VIRNECT/Skills",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "skills",
+    "github",
+    "workflow"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "VIRNECT Skills",
+    "shortDescription": "Issue, PR, and planning workflow skills",
+    "longDescription": "Codex skills for Korean issue management, GitHub PR review loops, and ASCII diagrams.",
+    "developerName": "VIRNECT",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/mkpark-VIRNECT/Skills",
+    "defaultPrompt": [
+      "Create a Korean GitHub issue plan.",
+      "Run an issue-to-PR workflow.",
+      "Draw an ASCII UI/data flow diagram."
+    ],
+    "brandColor": "#005BAC"
+  }
+}
