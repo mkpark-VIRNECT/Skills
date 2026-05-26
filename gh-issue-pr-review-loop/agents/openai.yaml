@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue PR Review Loop"
+  short_description: "이슈 기반 브랜치, PR, 독립 리뷰, 수정 반영 루프를 저장소별 설정에 맞춰 실행합니다."
+  default_prompt: "이슈의 관계와 active PR 충돌을 먼저 확인하고, 착수 가능한 경우 브랜치를 만들어 작업한 뒤 PR을 올리고, 독립 리뷰와 수정 반영 루프까지 마무리해줘."
