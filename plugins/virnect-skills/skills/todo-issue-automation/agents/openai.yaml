@@ -1,0 +1,4 @@
+interface:
+  display_name: "Todo Issue Automation"
+  short_description: "ProjectV2 Todo 이슈를 저장소 profile 기준으로 선별하고 PR 작업을 위임합니다."
+  default_prompt: "저장소 profile을 읽어 Todo 이슈를 충돌 없이 선별하고 worker에게 PR/리뷰 루프를 위임해줘."
