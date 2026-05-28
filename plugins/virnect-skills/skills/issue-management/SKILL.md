@@ -21,8 +21,8 @@ description: "요구사항을 GitHub 이슈로 등록하거나 기존 이슈를 
 - GitHub 이슈 조회는 비용이 낮은 direct lookup과 제한된 search를 먼저 사용하고, GraphQL은 ProjectV2와 Relationship처럼 필요한 최소 범위에만 사용한다.
 - 사실, 추론, 사용자 확인 필요 사항을 섞지 않는다. 확실하지 않은 내용은 질문으로 분리하고, 답이 해소되기 전에는 새 이슈 생성이나 실질 갱신을 하지 않는다.
 - assignee, Project, milestone, label은 저장소 관례나 사용자 지시가 있을 때 설정한다. 관례를 확인할 수 없으면 지어내지 말고 미설정 사유를 보고한다.
-- 프로젝트 상태는 이슈 본문 내용과 동기화한다. 각 이슈마다 GraphQL 조회 전에 `expectedStatus`를 먼저 정한다. 신규 등록 또는 실질 갱신에서는 질문이 남아 있으면 GitHub 변경을 중단하고, 질문 없이 바로 작업 가능하면 `Todo` 또는 동등한 상태로 둔다. 이미 존재하는 이슈에서 새 모호성이 발견되어 범위 확정 없이 관리성 표시가 필요할 때만 `Issue Review` 또는 저장소의 동등한 상태를 사용한다.
-- `Backlog`는 상태 option 목록에 있더라도 사용자 지시나 repo 문서로 `Todo`의 동등 상태임이 확인된 경우에만 사용한다.
+- 프로젝트 상태는 이슈 본문 내용과 동기화한다. 각 이슈마다 GitHub 생성/갱신 전에 `statusPlan`을 작성하고 `expectedStatus`를 먼저 정한다. 신규 등록 또는 실질 갱신에서는 질문이 남아 있으면 GitHub 변경을 중단하고, 질문 없이 바로 작업 가능하면 `Todo` 또는 동등한 상태로 둔다. 이미 존재하는 이슈에서 새 모호성이 발견되어 범위 확정 없이 관리성 표시가 필요할 때만 `Issue Review` 또는 저장소의 동등한 상태를 사용한다.
+- `Backlog`는 금지 기본값이다. 상태 option 목록에 있더라도 사용자 지시나 repo 문서로 `Todo`의 동등 상태임이 확인된 경우에만 사용한다.
 - 관계 판단이 애매하거나 병렬 작업 후보를 고를 때는 `references/relationship-policy.md`와 `scripts/gh-issue-preflight.ps1`를 사용한다.
 
 ## 질문 지침
@@ -107,6 +107,9 @@ Project status 현재값, 최신 issue/PR comment, PR head SHA, PR changed files
    - 선행 이슈가 끝나야 착수 가능한 후속 이슈에는 `addBlockedBy(issueId: 후속_이슈, blockingIssueId: 선행_이슈)` 방향으로 blocked-by 관계를 설정한다.
 4. 상태/관계 사전 계획을 작성한다.
    - 이 단계는 GitHub 이슈 생성/갱신과 GraphQL mutation 전에 완료한다.
+   - 각 생성/갱신 대상 이슈마다 `statusPlan`을 작성한다: `title`, `reason`, `remainingQuestions`, `expectedStatus`, `statusReason`, `relationshipPlan`.
+   - `statusPlan`이 없거나 필수 항목이 누락되면 이슈 생성, 본문 갱신, scope 변경, 하위 이슈 생성, relationship mutation을 실행하지 않는다.
+   - 신규 등록 또는 실질 갱신 대상의 `remainingQuestions`가 비어 있지 않으면 GitHub 변경을 중단하고 다음 질문 하나를 제시한다.
    - 각 생성/갱신 대상 이슈마다 `expectedStatus`를 정한다. 신규 등록 또는 실질 갱신 대상은 의도가 확정된 경우에만 `Todo` 또는 동등한 상태로 둔다.
    - `Issue Review` 또는 동등한 상태는 이미 존재하는 이슈에서 새 모호성이 발견되어 review 대기 표시만 하는 관리성 변경에 한정한다.
    - 상태 결정 우선순위는 1) 이슈 본문 내용과 사용자 확인 필요 여부, 2) repo Project에 해당 상태 option이 실제 존재하는지, 3) 최근 유사 이슈의 field 관례다.
@@ -130,7 +133,10 @@ Project status 현재값, 최신 issue/PR comment, PR head SHA, PR changed files
    - GitHub 앱 도구에 relationship 전용 기능이 없어도 `gh api graphql`로 `addSubIssue`와 `addBlockedBy`를 시도한다.
    - `gh api graphql`이 권한, API 지원, validation 문제로 실패한 경우에만 본문 fallback을 적용하고 실패 사유를 보고한다.
 7. Project 상태를 검증한다.
-   - 각 이슈의 실제 상태가 사전 계획의 `expectedStatus`와 일치하는지 확인한다.
+   - 각 이슈의 실제 상태가 사전 계획의 `expectedStatus`와 일치하는지 touched issue만 대상으로 최소 GraphQL query로 확인한다.
+   - `gh project item-add` 또는 `gh project item-edit` 출력만으로 상태 반영을 완료로 보지 않는다.
+   - Project 자동화가 `Backlog`로 넣었고 `expectedStatus=Todo`이면 즉시 `Todo`로 보정한 뒤 다시 최소 GraphQL query로 확인한다.
+   - 보정 후에도 `expectedStatus`와 `actualStatus`가 다르면 완료로 보고하지 말고 불일치와 실패 명령을 보고한다.
    - 질문이 없고 작업 범위가 명확하면 `Todo` 또는 동등한 상태.
    - 신규 등록 또는 실질 갱신 대상에서 질문이 있거나 목적/계획이 불확실하면 GitHub 변경을 중단하고 사용자에게 다음 질문 하나만 제시한다.
    - 기존 `Todo` 이슈에서 새 확인 필요 사항을 발견하면 본문 하단에 질문을 추가하고 review 상태로 변경할 수 있다. 단, 이 변경은 범위를 확정하지 않는 관리성 갱신이어야 한다.
@@ -289,11 +295,21 @@ UI 레이아웃 변경이 없으면 `예상 UI 레이아웃` 섹션을 제거한
 
 기본값:
 
+- `statusPlan` 없이 신규 이슈를 생성하거나 기존 이슈를 실질 갱신하지 않는다.
 - 질문이 없고 구현자가 바로 착수 가능한 이슈는 `Todo`.
 - 신규 등록 또는 실질 갱신 대상에 사용자 판단이 필요한 질문이 있거나 계약/범위/완료 기준이 불명확하면 GitHub 변경을 중단하고 다음 질문 하나를 제시한다.
 - `Issue Review`는 이미 존재하는 이슈에서 새 모호성이 발견되어 범위 확정 없이 review 대기 표시만 하는 관리성 변경에 한정한다.
 - 열린 blocker가 있어도 이슈 내용이 명확하면 `Todo`로 둔다. 단, `In Progress` 전환 후보에서는 제외한다.
-- `Backlog`는 사용자 지시나 repo 문서로 `Todo` 동등 상태임이 확인된 경우에만 사용할 수 있다.
+- `Backlog`는 금지 기본값이며, 사용자 지시나 repo 문서로 `Todo` 동등 상태임이 확인된 경우에만 사용할 수 있다.
+
+`statusPlan` 필수 항목:
+
+- `title`: 생성 또는 갱신할 이슈 제목.
+- `reason`: 이 이슈를 생성/갱신하는 이유와 근거.
+- `remainingQuestions`: 등록 전에 남은 사용자 확인 질문 목록. 신규 등록 또는 실질 갱신에서는 빈 목록이어야 한다.
+- `expectedStatus`: `Todo`, `Issue Review`, `Backlog` 같은 목표 Project 상태. `Backlog`는 명시 근거가 있을 때만 허용한다.
+- `statusReason`: 해당 상태를 선택한 이유.
+- `relationshipPlan`: parent/sub-issue, blocked-by, related 또는 관계 없음 판단.
 
 작업 대기 상태로 설정할 수 있는 조건:
 
@@ -318,7 +334,7 @@ UI 레이아웃 변경이 없으면 `예상 UI 레이아웃` 섹션을 제거한
 ## GitHub 처리 규칙
 
 - 이슈 생성 전 기존 open/closed 이슈를 검색해 중복, 재오픈, 신규 등록 중 무엇이 맞는지 판단하되, `GitHub 조회 비용 관리`의 search limit과 후보 선별 순서를 지킨다.
-- 신규 등록 또는 실질 갱신 전에는 등록 전 의도 확인 gate를 통과한다. 질문이 남아 있으면 이슈 생성, 본문 갱신, scope 변경, 하위 이슈 생성, relationship mutation을 실행하지 않는다.
+- 신규 등록 또는 실질 갱신 전에는 등록 전 의도 확인 gate와 `statusPlan` 작성을 모두 통과한다. 질문이 남아 있으면 이슈 생성, 본문 갱신, scope 변경, 하위 이슈 생성, relationship mutation을 실행하지 않는다.
 - 중복 또는 동일 문제 이슈를 발견하면 canonical issue 본문에 통합 요구사항과 관련 이슈 목록을 추가한다.
 - duplicate로 닫는 이슈에는 canonical issue 링크와 닫는 이유를 코멘트로 남긴다.
 - 동일 문제이지만 독립 완료 기준이 남는 이슈는 닫지 말고 related/child 관계로 본문에 명시한다.
@@ -326,12 +342,16 @@ UI 레이아웃 변경이 없으면 `예상 UI 레이아웃` 섹션을 제거한
 - GitHub 앱 도구로 가능한 작업은 앱 도구를 사용하고, ProjectV2 field나 Relationships처럼 앱 도구가 부족한 부분만 `gh` CLI 또는 GraphQL을 사용한다.
 - GitHub connector에 relationship 전용 도구가 없는 상황은 fallback 사유가 아니다. `gh api graphql`의 `addSubIssue`와 `addBlockedBy`를 먼저 사용하고, mutation 실패 시에만 본문 fallback을 적용한다.
 - ProjectV2 상태 변경 후에는 issue-level project item만 최소 GraphQL query로 다시 확인한다. project view 전체 조회는 사용자가 명시적으로 요구하거나 issue-level 검증이 실패한 경우에만 수행한다.
+- Project 자동화나 기본값 때문에 `actualStatus=Backlog`가 되면 `Backlog` 허용 근거가 없는 한 `expectedStatus`로 즉시 보정하고 재검증한다.
 - Milestone과 assignee는 유사 이슈나 사용자의 명시 지시를 우선한다. 추론 근거가 약하면 등록 전에 질문으로 해소한다.
 
 ## 완료 전 자체 체크
 
 - 새 이슈 생성 또는 실질 갱신 대상에 남은 질문이 없는가?
+- 각 생성/갱신 대상 이슈에 `statusPlan`이 있으며 필수 항목이 모두 명시됐는가?
+- 신규 등록 또는 실질 갱신 대상의 `remainingQuestions`가 빈 목록인가?
 - `Issue Review`를 사용했다면 이미 존재하는 이슈의 관리성 review 대기 표시인가?
+- `Backlog`를 사용했다면 사용자 지시나 repo 문서로 `Todo` 동등 상태임이 확인됐는가?
 - 모든 생성/갱신 이슈의 상태가 등록 전 의도 확인 gate 결과와 일치하는가?
 - 각 이슈의 `expectedStatus`와 실제 Project 상태가 일치하는가?
 - 기대한 native parent/sub-issue 관계가 실제로 설정됐는가?
@@ -346,6 +366,7 @@ UI 레이아웃 변경이 없으면 `예상 UI 레이아웃` 섹션을 제거한
 
 - 생성/갱신한 이슈 번호와 제목
 - 각 이슈의 Project 상태, assignee, milestone, label
+- 각 이슈의 `statusPlan` 요약
 - 각 이슈의 `expectedStatus`와 `actualStatus`
 - 하위 이슈와 blocking 관계
 - native parent/sub-issue 설정 여부
