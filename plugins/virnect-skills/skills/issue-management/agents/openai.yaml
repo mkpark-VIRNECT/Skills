@@ -1,4 +1,4 @@
 interface:
   display_name: "Issue Management"
   short_description: "요구사항을 중복 통합, 관계, 프로젝트 상태까지 포함해 작업 가능한 GitHub 이슈로 정리합니다."
-  default_prompt: "$issue-management로 요구사항을 분석하고 생성/갱신 전 statusPlan을 작성해 expectedStatus/actualStatus를 검증하며, 질문이 남으면 GitHub 변경을 중단하고 Backlog는 명시 근거 없이는 사용하지 말아줘."
+  default_prompt: "$issue-management로 요구사항을 분석하고 생성/갱신 전 statusPlan과 metadataPlan을 작성해 Assignees, Project Status/Size/Estimate, expectedStatus/actualStatus를 검증하며, Estimate가 18시간을 넘으면 이슈를 더 작게 나누고 질문이 남으면 GitHub 변경을 중단해줘."
