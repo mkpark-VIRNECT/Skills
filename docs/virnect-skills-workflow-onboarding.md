@@ -77,6 +77,21 @@ profile 위치:
 $CODEX_HOME\automation-profiles\multi-repo-issue-orchestration\<profile-id>.json
 ```
 
+처음 도입하는 product 저장소에서는 agent에게 profile 초기화를 요청한다. agent는 module 후보를 탐색하고, 수정 가능한 module과 package override 방식을 사용자에게 확인한 뒤에만 profile을 생성한다. 확인되지 않은 필수 값이 있으면 빈 JSON을 만들지 않고 질문과 후보 목록만 보고한다.
+
+```text
+product 저장소에서 multi-repo profile 초기화해줘.
+수정 가능한 module 후보와 product local test package override 방식은 확인 후 profile로 만들어줘.
+```
+
+고급 디버깅용 initializer:
+
+```powershell
+.\plugins\virnect-skills\skills\multi-repo-issue-orchestration\scripts\init-profile.ps1 `
+  -Profile product-suite `
+  -ProductRepoRoot D:\Git\Products\Product
+```
+
 고급 디버깅용 renderer:
 
 ```powershell

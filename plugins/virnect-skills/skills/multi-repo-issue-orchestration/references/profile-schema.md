@@ -4,6 +4,50 @@
 공통 workflow는 `SKILL.md`에 두고, repo/project/path/ownership/validation/package override 차이만 profile에 둔다.
 일반 사용자의 이슈 등록 진입점은 `issue-management`이며, 이 profile은 multi-repo 판단이 필요할 때 helper로 사용한다.
 
+## Guided Initialization
+
+사용자가 product 저장소에서 profile 초기화를 요청하면 별도 profile 생성 Skill을 만들지 않고 `scripts/init-profile.ps1`를 사용한다.
+
+```powershell
+.\scripts\init-profile.ps1 -Profile <profile-id> -ProductRepoRoot <product-repo-root>
+```
+
+초기화 스크립트가 자동으로 채우거나 후보로 보고할 수 있는 값:
+
+- product repo `repoFullName`, `repoUrl`, `baseBranch`, `sourceRoot`
+- product repo instruction path 후보
+- package/workspace/Unity manifest/git submodule/solution/project reference/docs 기반 module 후보
+- `gh`로 확인 가능한 경우의 GitHub ProjectV2 후보
+
+자동 판단하면 안 되는 값:
+
+- 사용자가 실제로 수정할 수 있는 module repo 목록
+- 각 module repo의 local `sourceRoot`, `baseBranch`, `todoProfile`
+- product/module별 `ownershipRules`, `validationRules`
+- product local test에서 module branch를 연결/검증/복원하는 `packageOverrides.setupCommands`, `verifyCommands`, `restoreCommands`
+- repo-local profile로 commit할 값인지, 개인 `$CODEX_HOME` profile로 둘 값인지의 저장 위치 판단
+
+확인되지 않은 required field가 있으면 profile 파일을 만들지 않는다. 이때 스크립트는 생성 예정 경로, module 후보, ProjectV2 후보, 필요한 질문만 보고해야 한다. 빈 문자열이나 빈 배열을 required field 자리에 넣은 JSON 초안은 만들지 않는다.
+
+사용자 확인 후 생성할 때 `-ConfirmedModulesJson`에는 JSON 파일 경로 또는 JSON 배열 문자열을 전달한다. 각 module 항목은 최종 profile의 module repo 항목과 같은 필드를 사용한다.
+
+```json
+[
+  {
+    "id": "module-a",
+    "displayName": "Module A",
+    "repoFullName": "owner/module-a",
+    "repoUrl": "https://github.com/owner/module-a",
+    "sourceRoot": "D:\\Git\\Packages\\ModuleA",
+    "baseBranch": "master",
+    "todoProfile": "module-a",
+    "repoInstructionPaths": ["AGENTS.md"],
+    "ownershipRules": ["same public package API", "same generated artifacts"],
+    "validationRules": ["Run changed-area package tests before opening PR."]
+  }
+]
+```
+
 ## Required Fields
 
 - `id`: 짧은 profile id.

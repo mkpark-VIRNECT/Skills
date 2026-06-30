@@ -12,6 +12,7 @@ Product 요구사항 하나가 여러 repository나 module package 변경으로 
 ## Reference 로드 기준
 
 - profile을 추가하거나 해석할 때는 `references/profile-schema.md`를 읽는다.
+- product repo에서 profile을 처음 만들 때는 `scripts/init-profile.ps1`를 사용한다.
 - 자동화 prompt를 생성하거나 profile required field를 확인할 때는 `scripts/render-hub-prompt.ps1`를 사용한다.
 - repo별 issue 생성/갱신은 `issue-management`를 사용한다.
 - repo별 PR 구현/검증/review loop는 `gh-issue-pr-review-loop`를 사용한다.
@@ -37,6 +38,14 @@ profile 위치 기본값:
 - 로컬 Codex 환경: `$CODEX_HOME/automation-profiles/multi-repo-issue-orchestration/<profile-id>.json`
 - 명시 경로: renderer의 `-Profile`에 JSON 파일 경로를 직접 전달
 
+profile 초기화:
+
+```powershell
+.\scripts\init-profile.ps1 -Profile <profile-id> -ProductRepoRoot <product-repo-root>
+```
+
+초기화 스크립트는 product repo의 GitHub repo, base branch, instruction path, package/workspace/submodule/solution/project reference/docs 기반 module 후보처럼 자동 발견 가능한 값만 채운다. 수정 가능한 module repo, module local `sourceRoot`, ownership/validation rule, product local package override command는 사용자가 확인해야 한다. 확인되지 않은 필수 값이 있으면 profile 파일을 만들지 않고 질문과 후보 목록만 보고한다.
+
 renderer:
 
 ```powershell
@@ -53,6 +62,7 @@ renderer:
    - 사용자가 단순히 이슈 등록을 요청했다면 `Register`로 처리하고 실행하지 않는다.
 2. profile과 기존 Skill을 확인한다.
    - `profile-schema.md`와 profile required field를 검증한다.
+   - product repo에 profile이 없으면 `init-profile.ps1`로 후보를 탐색하고, 사용자 확인이 필요한 값이 남아 있으면 GitHub 변경을 시작하지 않는다.
    - product repo instruction과 module repo instruction을 읽는다.
    - profile 필드가 빠지면 GitHub 변경을 시작하지 말고 누락 필드를 보고한다.
 3. 요구사항을 group으로 나누고 hub/single issue로 분류한다.
@@ -89,6 +99,7 @@ renderer:
 - 여러 요구사항 입력에서 hub issue가 여러 개 나올 수 있음을 고려했는가?
 - multi-repo/package/계약 변경 작업을 product issue 하나로 뭉개지 않았는가?
 - Register mode에서 작업 실행을 하지 않았는가?
+- profile 초기화에서 확인되지 않은 module/override/ownership 값을 추측해 JSON으로 쓰지 않았는가?
 - 모든 child issue가 repo별 독립 완료 기준과 검증 계획을 가지는가?
 - 열린 `blocked-by`, active PR overlap, partial preflight를 충돌 없음으로 해석하지 않았는가?
 - product local override는 profile command만 사용했는가?

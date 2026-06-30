@@ -1,4 +1,4 @@
 interface:
   display_name: "Multi Repo Issue Orchestration"
-  short_description: "issue-management와 PR loop가 multi-repo hub 작업을 조율할 때 쓰는 helper입니다."
-  default_prompt: "$issue-management로 요구사항을 이슈 등록해줘. multi-repo이면 내부 helper로 hub/sub issue 구조를 판단해줘."
+  short_description: "issue-management와 PR loop가 multi-repo hub 작업, profile 초기화, package override 조율에 쓰는 helper입니다."
+  default_prompt: "$issue-management로 요구사항을 이슈 등록해줘. multi-repo이면 내부 helper로 hub/sub issue 구조를 판단하고, profile이 없으면 후보 탐색 후 확인 질문을 해줘."
