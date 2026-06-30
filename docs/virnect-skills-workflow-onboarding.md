@@ -20,13 +20,14 @@ flowchart LR
   K --> L["한국어 결과 보고"]
 ```
 
-세 스킬의 역할은 분명히 나뉜다.
+사용자가 직접 고르는 기본 진입점은 둘이다. 이슈 등록은 `issue-management`, 작업 실행은 `gh-issue-pr-review-loop`로 요청한다. 단일 repo인지 multi repo인지는 스킬이 판단한다.
 
 | 스킬 | 사용하는 시점 | 결과물 |
 |------|---------------|--------|
 | `issue-management` | 요구사항을 이슈로 등록하거나 기존 이슈를 정리할 때 | 작업 가능한 GitHub 이슈, 상태, 관계, 검증 계획 |
 | `gh-issue-pr-review-loop` | 특정 이슈를 실제 코드 변경과 PR로 끝낼 때 | 브랜치, 커밋, PR, 리뷰 코멘트, 수정 반영 결과 |
 | `todo-issue-automation` | ProjectV2 `Todo` 큐에서 충돌 없는 작업을 반복 선별할 때 | worker 위임 결과, 제외 사유, PR/검증/리뷰 보고 |
+| `multi-repo-issue-orchestration` | 내부 helper 또는 고급 디버깅이 필요할 때 | product hub issue, repo별 child issue, product local package override 판단 보조 |
 
 모든 GitHub-visible 이슈, PR, 코멘트, 리뷰, 최종 보고는 한국어로 작성한다.
 
@@ -42,6 +43,59 @@ flowchart LR
 6. worker는 `gh-issue-pr-review-loop`로 PR과 리뷰 루프까지 닫는다.
 
 실제 사용에서 중요한 기준은 "이슈 상태"보다 "실제 작업 충돌 가능성"이다. `Todo` 상태여도 열린 `blocked-by`가 있거나, active PR이 같은 화면, DTO, service, repository, fixture, generated file을 수정 중이면 위임하지 않는다.
+
+## 0. Product hub issue 자동 분류
+
+사용자는 product 요구사항이 단일 repo인지 multi repo인지 구분하지 않는다. `$issue-management ... 이슈 등록`으로 요청하면 스킬이 요구사항을 group으로 나누고, 필요할 때 `multi-repo-issue-orchestration` helper를 읽어 product hub issue와 repo별 child issue를 구성한다. 등록 단계에서는 issue, Project field, relationship만 만들고 PR/worktree/package override는 실행하지 않는다.
+
+```mermaid
+flowchart TD
+  A["Product 요구사항"] --> B["issue-management"]
+  B --> C{"Product-only small issue?"}
+  C -->|예| D["Product 단일 issue"]
+  C -->|아니오| E["Product hub issue"]
+  E --> F["Product child issue"]
+  E --> G["Module child issue"]
+  F --> H["별도 실행 요청"]
+  G --> H
+  H --> I["gh-issue-pr-review-loop"]
+```
+
+단일 issue로 충분한 조건은 모두 만족해야 한다.
+
+- product repo 변경만 있다.
+- 독립 완료 기준이 1개다.
+- module package, API, DB, DTO, protocol 변경이 없다.
+- profile의 `singleIssueMaxEstimateHours` 이하로 끝난다.
+
+그 외에는 hub issue와 repo별 child issue로 나눈다. 한 번에 여러 요구사항이 들어오면 hub issue도 여러 개 생길 수 있다. child issue 작업과 product local package override는 별도 실행 요청에서만 진행한다.
+
+profile 위치:
+
+```text
+<product-repo>\.codex\multi-repo-issue-orchestration\profiles\<profile-id>.json
+$CODEX_HOME\automation-profiles\multi-repo-issue-orchestration\<profile-id>.json
+```
+
+고급 디버깅용 renderer:
+
+```powershell
+.\plugins\virnect-skills\skills\multi-repo-issue-orchestration\scripts\render-hub-prompt.ps1 `
+  -Profile product-suite `
+  -Action Register `
+  -ProductRepoRoot D:\Git\Products\Product
+```
+
+프롬프트 예시:
+
+```text
+$issue-management로 아래 product 요구사항을 이슈로 등록해줘. 단일 repo인지 multi repo인지는 직접 판단해줘. 등록 단계에서는 PR/worktree/package override 실행은 하지 마.
+
+요구사항:
+- Product 화면에서 module-a의 새 inspection API 결과를 표시해야 함
+- module-a package의 응답 DTO와 parser도 수정 필요
+- 사용자가 product local 환경에서 module-a 작업 branch로 통합 테스트할 수 있어야 함
+```
 
 ## 1. 자연어 요구사항을 이슈로 바꾸기
 
@@ -342,6 +396,7 @@ Codex에서는 플러그인 구조가 다음과 같아야 한다.
       ├─ issue-management\SKILL.md
       ├─ gh-issue-pr-review-loop\SKILL.md
       ├─ todo-issue-automation\SKILL.md
+      ├─ multi-repo-issue-orchestration\SKILL.md
       └─ ascii-art\SKILL.md
 ```
 

@@ -1,11 +1,12 @@
 ---
 name: issue-management
-description: "요구사항을 GitHub 이슈로 등록하거나 기존 이슈를 갱신하는 이슈 관리 스킬. 중복 이슈 통합, parent/sub-issue 분해, blocked-by 관계, ProjectV2 상태/Size/Estimate, milestone, assignees, labels, 작업 이유·목적·계획·완료 기준·검증 계획을 정리해야 할 때 사용한다. GraphQL 비용을 낮게 유지하면서 저장소별 이슈/프로젝트 관례를 현재 repo에서 확인해 적용한다. 새 이슈 생성 또는 본문·범위·계획의 실질 갱신 전에는 등록 전 의도 확인 gate로 개발 의도, 범위, 성공 기준, 검증 방식, 필수 메타데이터를 완전히 이해할 때까지 한 번에 하나씩 질문한다."
+description: "요구사항을 GitHub 이슈로 등록하거나 기존 이슈를 갱신하는 이슈 등록의 기본 진입점. 사용자는 단일 repo인지 multi repo인지 판단하지 않고 이 스킬로 이슈 등록을 요청한다. 여러 요구사항을 한 번에 받으면 요구사항 group으로 나누고, 각 group을 단일 issue, 같은 repo parent/sub-issue, product hub issue와 repo별 child issue로 자동 분류한다. 중복 이슈 통합, blocked-by 관계, ProjectV2 상태/Size/Estimate, milestone, assignees, labels, 작업 이유·목적·계획·완료 기준·검증 계획을 정리해야 할 때 사용한다. 이슈 등록 단계에서는 branch/worktree/PR/package override 실행을 하지 않는다."
 ---
 
 # Issue Management
 
 요구사항을 바로 작업 가능한 GitHub 이슈로 정리하고, 생성/갱신 전에 개발 의도와 필수 GitHub 메타데이터를 확정한다.
+사용자가 단일 repo인지 multi repo인지 구분하지 않아도 이 Skill이 요구사항 group과 issue 구조를 결정한다.
 이슈 생성, 갱신, 하위 이슈 분리, Project 상태/필드 변경, relationship 설정을 하나의 흐름으로 처리한다.
 
 ## Reference 로드 기준
@@ -14,12 +15,17 @@ description: "요구사항을 GitHub 이슈로 등록하거나 기존 이슈를 
 - 관계, 하위 이슈 분리, blocked-by, 충돌 위험 판단이 애매하면 `references/relationship-policy.md`를 읽는다.
 - GitHub 검색 제한, ProjectV2 Status/Size/Estimate, GraphQL 조회/변경/검증이 필요하면 `references/github-query-policy.md`를 읽는다.
 - 관계/충돌 preflight가 필요하면 `scripts/gh-issue-preflight.ps1`를 우선 사용한다.
+- product/module repository 영향, product hub issue, repo별 child issue, product local package override 설정 계획이 필요하면 sibling Skill인 `multi-repo-issue-orchestration`과 그 `references/profile-schema.md`를 helper로 읽는다.
 
 ## 핵심 원칙
 
+- 이 Skill은 이슈 등록의 public front door다. 사용자가 single-repo/multi-repo를 먼저 고르게 하지 않는다.
+- 여러 요구사항이 한 번에 들어오면 먼저 독립 목적, 완료 기준, 검증 경로, repository 영향별로 requirement group을 나눈다.
+- 각 group은 product-only 단일 issue, 같은 repo parent/sub-issue, multi-repo product hub issue + repo별 child issue 중 하나로 분류한다.
 - 사용자에게 보이는 이슈 제목, 본문, 코멘트, 보고는 저장소 지침과 현재 대화 언어에 맞춘다.
 - 이슈 본문에는 `작업 이유`, `목적`, `작업 계획`, `완료 기준`, `검증 계획`을 포함한다.
 - 새 이슈 생성 또는 본문·범위·계획을 바꾸는 실질 갱신 전에는 작업 이유, 목적/성공 기준, scope/non-scope, API/UI/data contract, 우선순위, 완료 기준, 검증 계획, 관계/의존성, 필수 GitHub 메타데이터를 모두 확정한다.
+- 이슈 등록 단계에서는 branch 생성, worktree 생성, PR 생성, product local package override command 실행을 하지 않는다.
 - 같은 요구사항의 이슈가 이미 있거나 같은 root cause와 같은 작업 범위로 해결되면 canonical issue로 통합한다.
 - 사실, 추론, 사용자 확인 필요 사항을 섞지 않는다. 확실하지 않은 내용은 질문으로 분리하고, 답이 해소되기 전에는 새 이슈 생성이나 실질 갱신을 하지 않는다.
 - 새 이슈와 하위 이슈를 생성하거나 work-ready 상태로 실질 갱신할 때는 Assignees, Project 상태, Project `Size`, Project `Estimate`를 필수로 설정한다.
@@ -66,6 +72,7 @@ description: "요구사항을 GitHub 이슈로 등록하거나 기존 이슈를 
 
 `statusPlan` 필수 항목:
 
+- `group`: 여러 요구사항 입력에서 이 이슈가 속한 requirement group 이름 또는 식별자.
 - `title`: 생성 또는 갱신할 이슈 제목.
 - `reason`: 이 이슈를 생성/갱신하는 이유와 근거.
 - `remainingQuestions`: 등록 전에 남은 사용자 확인 질문 목록. 신규 등록 또는 실질 갱신에서는 빈 목록이어야 한다.
@@ -109,31 +116,41 @@ Hard stop 조건:
    - 지정된 이슈/PR/코멘트가 있으면 direct lookup을 먼저 한다.
    - 관련 코드, 문서, 기존 이슈를 확인해 중복 이슈와 이미 결정된 계약을 찾는다.
    - 중복 검색과 GraphQL 사용 제한은 `references/github-query-policy.md`를 따른다.
+   - product/module repository 목록과 package override 계획이 필요한 repo에서는 `multi-repo-issue-orchestration` profile을 읽어 repo 영향 판단의 근거로 사용한다.
 2. 등록 전 의도 확인 gate를 통과한다.
    - 코드베이스나 기존 이슈에서 확인 가능한 사실을 먼저 확인한다.
    - 제품 의도나 구현 방향이 여러 갈래로 남으면 한 번에 하나씩 질문한다.
-3. 이슈 구조를 결정한다.
+3. 요구사항 group을 결정한다.
+   - 서로 다른 목적, 완료 기준, 검증 경로, repository 영향, 배포/리뷰 단위는 별도 group으로 나눈다.
+   - 같은 root cause, 데이터 계약, UI 흐름, PR 범위면 같은 group으로 묶는다.
+   - 한 번의 사용자 입력에서 group이 여러 개면 issue 또는 hub issue도 여러 개가 될 수 있다.
+4. 각 group의 이슈 구조를 결정한다.
    - 같은 root cause, 데이터 계약, UI 흐름, PR 범위면 canonical issue로 묶는다.
    - 독립 완료 기준이 있거나 단일 이슈 `Estimate`가 18시간을 넘으면 parent/sub-issue로 나눈다.
+   - product-only이고 작은 작업이면 단일 product issue로 둔다.
+   - product와 module/package repo가 함께 필요하거나 공통 계약 변경이 있으면 product hub issue와 repo별 child issue로 나눈다.
    - 관계와 분해 기준은 `references/relationship-policy.md`를 따른다.
-4. `statusPlan`, `metadataPlan`, `expectedNativeRelations`를 작성한다.
+5. `statusPlan`, `metadataPlan`, `expectedNativeRelations`를 작성한다.
    - 이 단계는 GitHub 이슈 생성/갱신과 GraphQL mutation 전에 완료한다.
    - `estimateHours > 18`이면 `splitRequired=true`로 두고 이슈 구조 결정으로 돌아간다.
-5. 이슈 본문을 작성한다.
+   - 여러 group이면 group별로 작성하고, hub issue와 child issue 각각에 별도 계획을 둔다.
+6. 이슈 본문을 작성한다.
    - `references/issue-body-template.md`를 사용한다.
    - 신규 등록 또는 실질 갱신 본문에는 `사용자 확인 필요 사항` 섹션을 남기지 않는다.
-6. GitHub 이슈를 생성하거나 갱신한다.
+7. GitHub 이슈를 생성하거나 갱신한다.
    - 저장소 관례와 `metadataPlan`에 맞는 assignees, Project Status, Size, Estimate, milestone, label을 설정한다.
    - parent/sub-issue와 blocked-by 관계는 GraphQL mutation을 먼저 시도한다.
-7. Project 상태와 필수 메타데이터를 검증한다.
+   - 이 단계에서 branch/worktree/PR/package override 실행은 하지 않는다.
+8. Project 상태와 필수 메타데이터를 검증한다.
    - touched issue만 대상으로 최소 GraphQL query를 실행한다.
    - `expectedStatus`, Project Size, Project Estimate가 계획과 일치하는지 확인한다.
    - 실제 assignees가 `metadataPlan.assignees`와 일치하는지 issue snapshot으로 확인한다.
    - `gh project item-add` 또는 `gh project item-edit` 출력만으로 완료 판정하지 않는다.
-8. native relationship을 검증한다.
+9. native relationship을 검증한다.
    - expected parent/sub-issue, blocked-by, blocking 관계와 실제 1-depth relationship이 일치하는지 확인한다.
-9. 결과를 보고한다.
-   - 생성/갱신 이슈, 상태, Project 필드, 관계, 검증 결과, fallback, 생략한 조회 범위와 판단 근거를 요약한다.
+10. 결과를 보고한다.
+   - 생성/갱신 이슈, group별 분류, 상태, Project 필드, 관계, 검증 결과, fallback, 생략한 조회 범위와 판단 근거를 요약한다.
+   - 이슈 등록만 완료했고 작업 실행은 하지 않았음을 명시한다.
 
 ## GitHub 처리 규칙
 
@@ -154,15 +171,18 @@ Hard stop 조건:
 - 각 이슈의 실제 Status, Assignees, Size, Estimate가 사전 계획과 일치하는가?
 - 기대한 native parent/sub-issue와 blocked-by 관계가 실제로 설정됐는가?
 - GraphQL fallback을 적용했다면 실패 사유를 보고에 포함했는가?
+- 이슈 등록 요청에서 branch/worktree/PR/package override 실행을 하지 않았는가?
 
 ## 보고 형식
 
 작업 완료 보고에는 다음을 포함한다.
 
+- requirement group별 분류와 단일 issue/parent-sub/hub-sub 판단 근거
 - 생성/갱신한 이슈 번호와 제목
 - 각 이슈의 Project 상태, assignees, Size, Estimate, milestone, label
 - 각 이슈의 `statusPlan`, `metadataPlan`, `expectedStatus`, `actualStatus`
 - 하위 이슈와 blocking 관계, native relationship 설정 여부
 - fallback이 있었다면 GraphQL 실패 사유
 - 비용 절감을 위해 생략한 조회 범위와 판단 근거
+- 등록 단계에서 작업 실행을 하지 않았다는 확인
 - GitHub 변경을 중단했다면 다음 질문 하나와 추천 답변

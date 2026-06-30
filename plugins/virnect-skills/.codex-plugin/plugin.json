@@ -20,7 +20,7 @@
   "interface": {
     "displayName": "VIRNECT Skills",
     "shortDescription": "Issue, PR, and planning workflow skills",
-    "longDescription": "Codex skills for Korean issue management, GitHub PR review loops, Todo automation orchestration, and ASCII diagrams.",
+    "longDescription": "Codex skills for Korean issue management, GitHub PR review loops, Todo automation orchestration, multi-repo hub issue workflows, and ASCII diagrams.",
     "developerName": "VIRNECT",
     "category": "Coding",
     "capabilities": [
@@ -32,6 +32,7 @@
       "Create a Korean GitHub issue plan.",
       "Run an issue-to-PR workflow.",
       "Run profile-based Todo issue automation.",
+      "Register product requirements as issues without choosing single or multi repo.",
       "Draw an ASCII UI/data flow diagram."
     ],
     "brandColor": "#005BAC"
