@@ -19,7 +19,17 @@
 | 단일 이슈 예상 작업이 18시간을 넘음 | parent/sub-issue | 더 작은 작업 단위로 나누고 각 하위 이슈의 Estimate가 18시간 이하가 되게 한다. |
 | API/DTO/DB/protocol/공통 컴포넌트가 먼저 확정돼야 함 | blocked-by | 후속 이슈가 선행 이슈에 의해 blocked 되도록 설정한다. |
 | 같은 화면, 모델, service, repository, generated file, E2E fixture를 active PR이 수정 중임 | blocked-by 또는 conflict-risk | 후속 작업이 선행 PR merge를 기다려야 하면 blocked-by를 설정하고, 단순 충돌 위험이면 본문과 PR에 위험 파일을 기록한다. |
+| product 증상이고 module/package root-cause가 확인됨 | module issue/PR canonical | 구현 소유권은 module issue/PR에 두고, product issue는 hub 또는 통합 검증 이슈가 필요할 때만 둔다. |
+| product 검증이 module PR merge 또는 package publish를 기다림 | blocked-by | product issue가 module PR 또는 연결 issue에 의해 blocked 되도록 설정한다. |
+| module/package root-cause가 plausible하지만 미확정 | related 또는 review | 구체 module PR/issue가 확인된 경우에만 blocked-by를 만들고, 후보 수준이면 Related와 원인 소유권 검토 본문에 근거를 남긴다. |
 | 관련 문맥만 공유하고 작업 순서가 없음 | related | GitHub relationship mutation은 만들지 않고 본문 `Related`에만 남긴다. |
+
+## Product 증상과 Module Root Cause
+
+- product 이슈는 증상 추적, hub 조율, 통합 검증 책임이 있을 때만 둔다.
+- module/package root-cause가 확인되면 구현 계획과 완료 기준은 module issue/PR에 둔다.
+- active module PR이 있으면 새 module issue를 만들기 전에 기존 PR과 연결 issue를 canonical, related, blocker 후보로 확인한다.
+- `unresolved` 상태에서는 product-only 구현 이슈를 만들지 말고 원인 소유권 검토 이슈나 질문으로 멈춘다.
 
 ## 하위 이슈 분리 기준
 

@@ -15,7 +15,8 @@ description: "요구사항을 GitHub 이슈로 등록하거나 기존 이슈를 
 - 관계, 하위 이슈 분리, blocked-by, 충돌 위험 판단이 애매하면 `references/relationship-policy.md`를 읽는다.
 - GitHub 검색 제한, ProjectV2 Status/Size/Estimate, GraphQL 조회/변경/검증이 필요하면 `references/github-query-policy.md`를 읽는다.
 - 관계/충돌 preflight가 필요하면 `scripts/gh-issue-preflight.ps1`를 우선 사용한다.
-- product/module repository 영향, product hub issue, repo별 child issue, product local package override 설정 계획이 필요하면 sibling Skill인 `multi-repo-issue-orchestration`과 그 `references/profile-schema.md`를 helper로 읽는다.
+- product repo-local `.codex/multi-repo-issue-orchestration/profiles/*.json`, 로컬 Codex profile, 또는 명시된 multi-repo profile이 발견되면 product-only 판단 전에 profile과 sibling Skill `multi-repo-issue-orchestration`의 `references/profile-schema.md`를 먼저 읽는다.
+- product/module repository 영향, product hub issue, repo별 child issue, product local package override 설정 계획이 필요하면 sibling Skill인 `multi-repo-issue-orchestration`을 helper로 읽는다.
 
 ## 핵심 원칙
 
@@ -75,7 +76,7 @@ description: "요구사항을 GitHub 이슈로 등록하거나 기존 이슈를 
 - `group`: 여러 요구사항 입력에서 이 이슈가 속한 requirement group 이름 또는 식별자.
 - `title`: 생성 또는 갱신할 이슈 제목.
 - `reason`: 이 이슈를 생성/갱신하는 이유와 근거.
-- `remainingQuestions`: 등록 전에 남은 사용자 확인 질문 목록. 신규 등록 또는 실질 갱신에서는 빈 목록이어야 한다.
+- `remainingQuestions`: 등록 전에 남은 사용자 확인 질문 목록. 신규 등록 또는 실질 갱신에서는 빈 목록이어야 한다. 단, 신규 원인 소유권 검토 `Issue Review` 이슈는 root-cause ownership 해소 질문만 남길 수 있다.
 - `expectedStatus`: `Todo`, `Issue Review`, `Backlog` 같은 목표 Project 상태. `Backlog`는 명시 근거가 있을 때만 허용한다.
 - `statusReason`: 해당 상태를 선택한 이유.
 - `relationshipPlan`: parent/sub-issue, blocked-by, related 또는 관계 없음 판단.
@@ -90,14 +91,24 @@ description: "요구사항을 GitHub 이슈로 등록하거나 기존 이슈를 
 - `splitRequired`: 예상 작업이 18시간을 넘어 하위 이슈 분리가 필요한지 여부.
 - `metadataQuestions`: 등록 전에 남은 메타데이터 확인 질문 목록. 신규 등록 또는 실질 갱신에서는 빈 목록이어야 한다.
 
+`rootCauseOwnershipPlan` 필수 항목:
+
+- `symptomRepo`: 증상이 관측된 product 또는 module repository.
+- `candidateRootCauseRepos`: profile, package, 코드 검색, 기존 이슈/PR로 확인한 root-cause 후보 repository 목록.
+- `searchedSignals`: Jira key, 핵심 class/symbol/path/package명, package manifest/lock, ownership 문서처럼 실제 검색한 signal 목록.
+- `activePrOrIssueCandidates`: 같은 root cause, package, 경로, PR 범위와 겹치는 open issue/PR 후보 목록.
+- `ownershipDecision`: `product-only | module-root-cause | multi-repo | unresolved`.
+- `decisionReason`: 해당 소유권 결정을 선택한 근거.
+
 Hard stop 조건:
 
-- `statusPlan` 또는 `metadataPlan`이 없거나 필수 항목이 누락됐다.
-- `remainingQuestions` 또는 `metadataQuestions`가 비어 있지 않다.
-- 목적, 완료 기준, API/인터페이스/데이터 계약, 구현 범위, non-scope가 불명확하다.
+- `statusPlan`, `metadataPlan`, `rootCauseOwnershipPlan` 중 하나가 없거나 필수 항목이 누락됐다.
+- `metadataQuestions`가 비어 있지 않다.
+- `remainingQuestions`가 비어 있지 않다. 단, `ownershipDecision=unresolved`이고 `expectedStatus=Issue Review`인 원인 소유권 검토 이슈는 `remainingQuestions`가 root-cause ownership 해소 질문만 담을 수 있다.
+- 구현 이슈의 목적, 완료 기준, API/인터페이스/데이터 계약, 구현 범위, non-scope가 불명확하다.
 - Assignees, Project Status, Size, Estimate 중 하나를 신뢰할 수 있게 설정하지 못했다.
 - `estimateHours > 18`인데 더 작은 작업 단위로 나누지 않았다.
-- 신규 등록 또는 실질 갱신을 `Issue Review`로 만들려 한다. 신규 대상은 질문 gate를 통과한 뒤 `Todo` 또는 동등 상태로 둔다.
+- 신규 등록 또는 실질 갱신을 `Issue Review`로 만들려 한다. 단, `ownershipDecision=unresolved`인 신규 원인 소유권 검토 이슈는 허용한다.
 
 작업 대기 상태로 둘 수 있는 조건:
 
@@ -108,7 +119,7 @@ Hard stop 조건:
 - 각 생성 이슈의 `Estimate`가 18시간 이하이며, 초과 작업은 더 작은 이슈로 분리되어 있다.
 - 사용자의 추가 판단 없이 구현자가 바로 작업을 시작할 수 있다.
 
-`Issue Review`는 이미 존재하는 이슈에서 새 모호성이 발견되어 범위 확정 없이 review 대기 표시만 하는 관리성 변경에 한정한다.
+`Issue Review`는 이미 존재하는 이슈에서 새 모호성이 발견되어 범위 확정 없이 review 대기 표시만 하는 관리성 변경에 한정한다. 예외적으로 신규 원인 소유권 검토 이슈는 `rootCauseOwnershipPlan.ownershipDecision=unresolved`이고 본문이 구현-ready처럼 보이지 않을 때만 생성할 수 있다.
 
 ## Workflow
 
@@ -116,7 +127,12 @@ Hard stop 조건:
    - 지정된 이슈/PR/코멘트가 있으면 direct lookup을 먼저 한다.
    - 관련 코드, 문서, 기존 이슈를 확인해 중복 이슈와 이미 결정된 계약을 찾는다.
    - 중복 검색과 GraphQL 사용 제한은 `references/github-query-policy.md`를 따른다.
-   - product/module repository 목록과 package override 계획이 필요한 repo에서는 `multi-repo-issue-orchestration` profile을 읽어 repo 영향 판단의 근거로 사용한다.
+   - Root Cause Ownership Gate를 먼저 수행한다.
+   - product repo-local `.codex/multi-repo-issue-orchestration/profiles/*.json`, 로컬 Codex profile, 또는 명시 profile이 있으면 profile과 `profile-schema.md`를 읽고 product/module repository 목록을 확정한다.
+   - Jira key, 핵심 class/symbol/path/package명으로 symptom repo와 profile repos의 open issue/PR을 검색한다.
+   - Unity repo에서는 profile `sourceRoot` 기준으로 `Packages/manifest.json`, `Packages/packages-lock.json`, package ownership 문서를 확인한다.
+   - module/package root-cause가 plausible하면 product-only Todo 이슈 생성을 금지하고 `module-root-cause`, `multi-repo`, 또는 `unresolved`로 분류한다.
+   - profile이 없으면 profile 부재를 `rootCauseOwnershipPlan.searchedSignals`와 `decisionReason`에 남기고, 확정 불가한 module 후보를 추측하지 않는다.
 2. 등록 전 의도 확인 gate를 통과한다.
    - 코드베이스나 기존 이슈에서 확인 가능한 사실을 먼저 확인한다.
    - 제품 의도나 구현 방향이 여러 갈래로 남으면 한 번에 하나씩 질문한다.
@@ -130,13 +146,13 @@ Hard stop 조건:
    - product-only이고 작은 작업이면 단일 product issue로 둔다.
    - product와 module/package repo가 함께 필요하거나 공통 계약 변경이 있으면 product hub issue와 repo별 child issue로 나눈다.
    - 관계와 분해 기준은 `references/relationship-policy.md`를 따른다.
-5. `statusPlan`, `metadataPlan`, `expectedNativeRelations`를 작성한다.
+5. `statusPlan`, `metadataPlan`, `rootCauseOwnershipPlan`, `expectedNativeRelations`를 작성한다.
    - 이 단계는 GitHub 이슈 생성/갱신과 GraphQL mutation 전에 완료한다.
    - `estimateHours > 18`이면 `splitRequired=true`로 두고 이슈 구조 결정으로 돌아간다.
    - 여러 group이면 group별로 작성하고, hub issue와 child issue 각각에 별도 계획을 둔다.
 6. 이슈 본문을 작성한다.
    - `references/issue-body-template.md`를 사용한다.
-   - 신규 등록 또는 실질 갱신 본문에는 `사용자 확인 필요 사항` 섹션을 남기지 않는다.
+   - 신규 등록 또는 실질 갱신 본문에는 `사용자 확인 필요 사항` 섹션을 남기지 않는다. 단, 신규 원인 소유권 검토 `Issue Review` 이슈는 root-cause ownership 해소 질문만 남길 수 있다.
 7. GitHub 이슈를 생성하거나 갱신한다.
    - 저장소 관례와 `metadataPlan`에 맞는 assignees, Project Status, Size, Estimate, milestone, label을 설정한다.
    - parent/sub-issue와 blocked-by 관계는 GraphQL mutation을 먼저 시도한다.
@@ -162,11 +178,12 @@ Hard stop 조건:
 
 ## 완료 전 자체 체크
 
-- 새 이슈 생성 또는 실질 갱신 대상에 남은 질문이 없는가?
-- 각 생성/갱신 대상 이슈에 `statusPlan`과 `metadataPlan`이 있으며 필수 항목이 모두 명시됐는가?
-- 신규 등록 또는 실질 갱신 대상의 `remainingQuestions`, `metadataQuestions`가 빈 목록인가?
+- 새 구현 이슈 생성 또는 실질 갱신 대상에 남은 질문이 없는가?
+- 각 생성/갱신 대상 이슈에 `statusPlan`, `metadataPlan`, `rootCauseOwnershipPlan`이 있으며 필수 항목이 모두 명시됐는가?
+- 신규 등록 또는 실질 갱신 대상의 `remainingQuestions`, `metadataQuestions`가 빈 목록인가? 원인 소유권 검토 `Issue Review`라면 남은 질문이 root-cause ownership에만 한정됐는가?
 - 각 생성 이슈의 `Estimate`가 18시간 이하인가?
-- `Issue Review`를 사용했다면 이미 존재하는 이슈의 관리성 review 대기 표시인가?
+- `Issue Review`를 사용했다면 이미 존재하는 이슈의 관리성 review 대기 표시이거나 신규 원인 소유권 검토 이슈인가?
+- multi-repo profile이 있는데도 product-only 단일 이슈로 뭉개지 않았는가?
 - `Backlog`를 사용했다면 사용자 지시나 repo 문서로 `Todo` 동등 상태임이 확인됐는가?
 - 각 이슈의 실제 Status, Assignees, Size, Estimate가 사전 계획과 일치하는가?
 - 기대한 native parent/sub-issue와 blocked-by 관계가 실제로 설정됐는가?
@@ -180,7 +197,7 @@ Hard stop 조건:
 - requirement group별 분류와 단일 issue/parent-sub/hub-sub 판단 근거
 - 생성/갱신한 이슈 번호와 제목
 - 각 이슈의 Project 상태, assignees, Size, Estimate, milestone, label
-- 각 이슈의 `statusPlan`, `metadataPlan`, `expectedStatus`, `actualStatus`
+- 각 이슈의 `statusPlan`, `metadataPlan`, `rootCauseOwnershipPlan`, `expectedStatus`, `actualStatus`
 - 하위 이슈와 blocking 관계, native relationship 설정 여부
 - fallback이 있었다면 GraphQL 실패 사유
 - 비용 절감을 위해 생략한 조회 범위와 판단 근거
