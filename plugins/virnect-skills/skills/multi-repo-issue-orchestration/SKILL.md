@@ -16,7 +16,7 @@ Product 요구사항 하나가 여러 repository나 module package 변경으로 
 - 자동화 prompt를 생성하거나 profile required field를 확인할 때는 `scripts/render-hub-prompt.ps1`를 사용한다.
 - repo별 issue 생성/갱신은 `issue-management`를 사용한다.
 - repo별 PR 구현/검증/review loop는 `gh-issue-pr-review-loop`를 사용한다.
-- repo별 Todo 후보 자동 선별이 필요하면 해당 repo의 `todoProfile`로 `todo-issue-automation`을 사용한다.
+- repo별 Todo 후보 자동 선별이나 broad parent 분해가 필요하면 해당 repo의 `todoProfile`로 `todo-issue-automation`을 사용한다.
 
 ## 기본 원칙
 
@@ -78,6 +78,7 @@ renderer:
    - branch/worktree/PR/package override 실행은 하지 않는다.
 5. `Execute` mode에서는 작업 후보를 선별한다.
    - hub issue와 child issue의 `blocked-by`, Project status, active PR changed files를 확인한다.
+   - hub/parent issue는 직접 구현하지 않는다. 실행 가능한 child가 없고 parent가 broad하면 해당 repo의 `todoProfile`로 `todo-issue-automation` broad parent 분해 정책을 따른다.
    - child issue별 repo ownership rule을 적용한다.
    - 동시에 진행 가능한 child만 위임하고, overlap이 있으면 보류한다.
 6. repo별 PR을 진행한다.

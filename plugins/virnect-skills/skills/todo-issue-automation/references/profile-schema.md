@@ -25,10 +25,15 @@
 - `validationRules`: worker 검증 기대치 배열
 - `reportingRules`: 최종 보고에 포함할 항목 배열
 
+## Optional Fields
+
+- `candidateSplitPolicy`: broad parent Todo 후보를 child issue로 분해 등록할지 제어한다. 없으면 `enabled=true`, `requireParentInTodoQueue=true`, `maxChildIssuesPerRun=1`로 해석한다.
+
 ## Rules
 
 - JSON은 comments 없이 UTF-8로 저장한다.
 - `preflightArgs`에는 최소 `Repo`, `ProjectOwner`, `ProjectNumber`, `Base`를 둔다.
+- `candidateSplitPolicy.maxChildIssuesPerRun`이 있으면 1 이상의 정수여야 한다.
 - status 이름은 Project에 실제로 표시되는 문자열과 맞춘다.
 - path 값은 Windows 경로를 JSON escape 규칙에 맞게 `\\`로 쓴다.
 - profile은 설치 cache path나 공통 Skill 경로를 포함하지 않는다. Skill은 automation prompt에서 이름으로 참조한다.
@@ -60,6 +65,11 @@
     "ProjectOwner": "owner",
     "ProjectNumber": 1,
     "Base": "master"
+  },
+  "candidateSplitPolicy": {
+    "enabled": true,
+    "requireParentInTodoQueue": true,
+    "maxChildIssuesPerRun": 1
   },
   "ownershipRules": ["same API contract", "same DB entity/table"],
   "validationRules": ["Run changed-area tests first, then broader validation when risk is high."],

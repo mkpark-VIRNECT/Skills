@@ -276,11 +276,13 @@ $actionSteps = if ($Action -eq "Register") {
 @"
 1. 지정된 issue target을 조회해 단일 구현 issue인지 hub/umbrella issue인지 판정한다.
 2. hub/umbrella issue이면 child issue와 blocked-by, Project status, active PR changed files를 조회한다.
-3. 열린 blocker, partial preflight, ownership overlap이 있는 child issue는 실행하지 않는다.
-4. 실행 가능한 child issue만 각 repo worktree에서 gh-issue-pr-review-loop로 진행한다.
-5. 필요한 module branch/PR이 준비된 뒤 packageOverrides.setupCommands만 실행한다.
-6. packageOverrides.verifyCommands로 product local test 환경을 확인한다.
-7. product local override 변경 파일과 restoreCommands를 보고한다.
+3. hub/parent issue는 직접 구현하지 않는다.
+4. 실행 가능한 child issue가 없고 hub/parent가 broad하면 해당 repo의 todoProfile로 todo-issue-automation broad parent 분해 정책을 따른다.
+5. 열린 blocker, partial preflight, ownership overlap이 있는 child issue는 실행하지 않는다.
+6. 실행 가능한 child issue만 각 repo worktree에서 gh-issue-pr-review-loop로 진행한다.
+7. 필요한 module branch/PR이 준비된 뒤 packageOverrides.setupCommands만 실행한다.
+8. packageOverrides.verifyCommands로 product local test 환경을 확인한다.
+9. product local override 변경 파일과 restoreCommands를 보고한다.
 "@
 }
 
@@ -318,6 +320,8 @@ $repoSummary
 - 사용자는 single-repo/multi-repo를 고르지 않는다. 이슈 등록의 기본 진입점은 issue-management다.
 - Register action에서는 이슈 등록과 관계 검증만 하고 branch/worktree/PR/package override command를 실행하지 않는다.
 - Execute action은 기존 issue 번호나 URL을 기준으로만 실행한다.
+- Execute action에서 hub/parent issue는 직접 구현하지 않고 실행 가능한 child issue만 위임한다.
+- 실행 가능한 child가 없고 parent가 broad하면 해당 repo의 todoProfile로 todo-issue-automation broad parent 분해 정책을 따른다.
 - product-only, 독립 완료 기준 1개, package/API/DB/DTO/protocol 변경 없음, estimate <= $singleEstimate 이면 product 단일 issue로 구성한다.
 - multi-repo, module package 변경, 공통 계약 변경, 독립 검증 단위가 있으면 product hub issue와 repo별 child issue로 구성한다.
 - relation은 GitHub native sub issue/blocked-by mutation을 먼저 시도하고, 실패하면 hub issue 본문에 child issue URL과 fallback 사유를 남긴다.

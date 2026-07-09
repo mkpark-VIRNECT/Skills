@@ -87,6 +87,20 @@ function Assert-RequiredField {
     }
 }
 
+function Get-PropertyValue {
+    param(
+        [pscustomobject]$Object,
+        [string]$Field
+    )
+
+    $property = $Object.PSObject.Properties[$Field]
+    if ($null -eq $property) {
+        return $null
+    }
+
+    return $property.Value
+}
+
 function Format-BulletList {
     param([object]$Items)
 
@@ -151,6 +165,38 @@ if ([int]$profileObject.maxWorkers -lt 1) {
     throw "Profile maxWorkers must be greater than zero."
 }
 
+$candidateSplitPolicy = Get-PropertyValue -Object $profileObject -Field "candidateSplitPolicy"
+$splitEnabled = $true
+$splitRequireParentInTodoQueue = $true
+$splitMaxChildIssuesPerRun = 1
+if ($null -ne $candidateSplitPolicy) {
+    $enabled = Get-PropertyValue -Object $candidateSplitPolicy -Field "enabled"
+    if ($null -ne $enabled) {
+        $splitEnabled = [bool]$enabled
+    }
+
+    $requireParentInTodoQueue = Get-PropertyValue -Object $candidateSplitPolicy -Field "requireParentInTodoQueue"
+    if ($null -ne $requireParentInTodoQueue) {
+        $splitRequireParentInTodoQueue = [bool]$requireParentInTodoQueue
+    }
+
+    $maxChildIssuesPerRun = Get-PropertyValue -Object $candidateSplitPolicy -Field "maxChildIssuesPerRun"
+    if ($null -ne $maxChildIssuesPerRun) {
+        $splitMaxChildIssuesPerRun = [int]$maxChildIssuesPerRun
+    }
+}
+
+if ($splitMaxChildIssuesPerRun -lt 1) {
+    throw "Profile candidateSplitPolicy.maxChildIssuesPerRun must be greater than zero."
+}
+
+$splitModeText = if ($splitEnabled) { "enabled" } else { "disabled" }
+$splitActionText = if ($splitEnabled) {
+    "split-required broad parent는 조건을 모두 만족할 때 issue-management Register mode로 child issue만 등록한다."
+} else {
+    "split-required broad parent는 child issue를 등록하지 않고 사유만 보고한다."
+}
+
 $prompt = @"
 ProjectV2 Todo 이슈 자동화를 실행한다.
 
@@ -168,21 +214,36 @@ ProjectV2 Todo 이슈 자동화를 실행한다.
 - 사람이 확인하는 보고와 GitHub issue/PR/comment/review 문구는 한국어로 작성한다.
 - merge는 수행하지 않는다.
 - 불확실한 작업 범위는 충돌 가능으로 분류하고 바로 구현하지 않는다.
+- broad parent 이슈는 직접 구현하지 않는다.
+
+## Candidate split policy
+- mode: $splitModeText
+- requireParentInTodoQueue: $splitRequireParentInTodoQueue
+- maxChildIssuesPerRun: $splitMaxChildIssuesPerRun
+- $splitActionText
 
 ## 실행 절차
 1. profile schema와 profile required field를 검증한다.
 2. profile에 정의된 저장소와 ProjectV2에서 Todo/In Progress issue 및 active PR/branch를 수집한다.
-3. profile ownership rule로 충돌 없는 Todo 후보를 선별한다.
-4. 선별된 이슈를 profile maxWorkers 범위에서 worker에게 위임한다.
-5. worker prompt에는 profile 기반 preflight 인자, 예상 수정 범위, 충돌 금지 ownership, 검증 기대치, 사용할 Skill 경로를 포함한다.
-6. worker 결과를 모아 profile reporting rule에 맞춰 최종 보고한다.
-7. 작업 대상이 없으면 새 이슈를 만들지 말고, 어떤 기준으로 대상이 없다고 판단했는지만 보고한다.
+3. Todo 후보를 direct, split-required, defer로 분류하고 existing open child가 있으면 parent를 재분해하지 말고 child만 평가한다.
+4. split-required는 parent가 Todo 큐에 있고, native child/본문 child URL 중복이 없고, child별 scope/non-scope/완료 기준/검증 계획/Assignee/Project Status/Size/Estimate가 확정된 경우에만 Register mode로 child issue를 만든다.
+5. child 등록 뒤 Project/relationship을 재조회하고 실행 대상은 child issue만 삼는다. child PR close keyword는 child에만 쓰고 parent는 Refs 또는 Part of로만 참조한다.
+6. profile ownership rule로 충돌 없는 Todo 후보를 선별한다.
+7. 선별된 이슈를 profile maxWorkers 범위에서 worker에게 위임한다.
+8. worker prompt에는 profile 기반 preflight 인자, 예상 수정 범위, 충돌 금지 ownership, 검증 기대치, 사용할 Skill 경로를 포함한다.
+9. worker 결과를 모아 profile reporting rule에 맞춰 최종 보고한다.
+10. 작업 대상이 없으면 split-required 조건부 child 등록 예외를 제외하고 새 이슈를 만들지 말고, 어떤 기준으로 대상이 없다고 판단했는지만 보고한다.
 "@
 
 if ($Json) {
     [pscustomobject]@{
         profile = $profileObject.id
         profilePath = $profilePath
+        candidateSplitPolicy = [pscustomobject]@{
+            enabled = $splitEnabled
+            requireParentInTodoQueue = $splitRequireParentInTodoQueue
+            maxChildIssuesPerRun = $splitMaxChildIssuesPerRun
+        }
         prompt = $prompt
     } | ConvertTo-Json -Depth 8
 } else {

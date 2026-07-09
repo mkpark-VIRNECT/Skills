@@ -16,6 +16,7 @@ ProjectV2의 `Todo` 이슈를 외부 profile 기준으로 수집하고, active �
 - 이슈 본문 정리, 모호성 처리, relationship/preflight 판단은 sibling Skill인 `issue-management`를 사용한다.
 - merge는 수행하지 않는다.
 - 불확실한 작업 범위는 충돌 가능으로 분류하고 worker 위임 대상에서 제외한다.
+- broad parent 이슈는 직접 구현하지 않는다. 단, profile `candidateSplitPolicy.enabled`가 true이고 바로 구현 가능한 child issue가 확정되면 `issue-management` Register mode로 child issue만 등록할 수 있다.
 - baseline 실패와 이번 변경 회귀를 분리해 보고한다.
 
 ## Profile 사용
@@ -62,17 +63,29 @@ renderer 출력은 저장된 automation의 `prompt`에 넣는 얇은 wrapper다.
    - profile의 `ownershipRules`를 적용해 파일뿐 아니라 같은 화면, DTO/model, API, DB, fixture, config, service ownership 충돌을 함께 판단한다.
 6. Todo 후보 수정 범위를 추정한다.
    - 이슈 제목, 본문, 최신 코멘트, parent/sub issue, 코드 검색 결과, profile ownership rule을 사용한다.
+   - 후보 분류는 `direct`, `split-required`, `defer`로 기록한다.
+   - `direct`: 현재 이슈 전체를 한 PR로 완료할 수 있다.
+   - `split-required`: 현재 이슈는 broad parent라 직접 실행하지 않고 child issue 등록이 먼저 필요하다.
+   - `defer`: child로도 바로 정의할 수 없을 만큼 scope, ownership, product/design 결정이 불명확하다.
+   - 기존 open child가 있으면 parent를 실행하거나 재분해하지 말고 child만 후보로 다시 평가한다.
    - 추정 신뢰도는 `확정`, `높은 가능성`, `불명확`으로 기록한다.
    - `불명확`은 worker 위임 대상에서 제외하고 필요한 정보를 보고한다.
-7. 충돌 없는 후보를 선별한다.
+7. broad parent 후보를 조건부 분해한다.
+   - 기본 정책은 `candidateSplitPolicy.enabled=true`, `requireParentInTodoQueue=true`, `maxChildIssuesPerRun=1`이다.
+   - `split-required` child 등록은 parent가 Todo 큐에 있고, native child나 본문 child URL 중복이 없고, child별 scope/non-scope/완료 기준/검증 계획/Assignee/Project Status/Size/Estimate가 모두 확정된 경우에만 허용한다.
+   - `candidateSplitPolicy.enabled=false`이면 child 등록 없이 split-required 사유만 보고한다.
+   - child 등록은 `issue-management` Register mode만 사용하고 branch/worktree/PR/package override를 만들지 않는다.
+   - child 등록 뒤 Project/relationship을 재조회하고, 실행 대상은 parent가 아니라 child issue만 삼는다.
+   - child PR은 child issue에만 `Closes`/`Fixes`를 쓰고, parent는 `Refs` 또는 `Part of`로만 참조한다.
+8. 충돌 없는 후보를 선별한다.
    - active 수정 범위와 겹치는 Todo를 제외한다.
    - 남은 Todo끼리 ownership이 겹치면 그룹별 대표 선행 이슈 1개만 고른다.
    - 최대 worker 수는 profile의 `maxWorkers`를 넘기지 않는다.
-8. worker에게 위임한다.
+9. worker에게 위임한다.
    - worker prompt에는 이슈 번호, 예상 수정 범위, 충돌 금지 ownership, 검증 기대치, profile 기반 preflight 인자를 포함한다.
    - worker에게 `gh-issue-pr-review-loop`와 `issue-management`를 사용하도록 지시한다.
    - worker는 각자 이슈별 branch/worktree를 사용하고 다른 작업자의 변경을 되돌리지 않는다.
-9. 결과를 수집해 보고한다.
+10. 결과를 수집해 보고한다.
    - bootstrap worktree/branch
    - In Progress와 active PR 수정 범위
    - Todo 후보와 제외 사유
