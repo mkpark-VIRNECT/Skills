@@ -18,9 +18,11 @@ description: "GitHub 이슈를 브랜치, 구현, 검증, 커밋, 푸시, PR, �
 작업은 아래 조건을 모두 만족할 때 완료로 본다.
 
 - 이슈 기준 브랜치가 생성되고 원격에 푸시되어 있다.
+- source 구현 이슈의 Development에 작업 브랜치가 연결되어 있다.
 - 저장소가 Project/상태를 사용한다면 착수 상태가 `In Progress` 또는 저장소의 동등한 상태로 변경되어 있다.
 - 구현, 문서, 테스트가 이슈 범위와 일치한다.
-- PR 제목과 본문은 저장소 지침과 사용자의 언어에 맞게 작성되어 있고 이슈 번호가 연결되어 있다.
+- PR 제목과 본문은 저장소 지침과 사용자의 언어에 맞고, 실행 계정이 assignee이며 source 구현 이슈가 closing issue로 연결되어 있다.
+- source 구현 이슈에 Jira key가 있으면 모든 key가 브랜치와 PR 제목에 보존되고 Jira Development에 branch/PR이 동기화되어 있다. key가 없으면 Jira 검증 없이 GitHub-only 작업으로 완료할 수 있다.
 - 독립 리뷰가 GitHub PR에 남아 있고, 수정 요청이 있으면 반영 또는 반박 근거가 남아 있다.
 - 수정 후 필요한 검증이 다시 실행되었고, 남은 blocking 요청이 없다.
 - Draft PR로 시작했다면 마지막에 Ready for review 전환 여부가 판단되어 있다.
@@ -42,7 +44,11 @@ description: "GitHub 이슈를 브랜치, 구현, 검증, 커밋, 푸시, PR, �
    - hub, umbrella, parent issue면 직접 branch/worktree를 만들지 않는다.
    - hub/parent issue의 child issue, blocked-by, active PR overlap을 조회하고 실행 가능한 child issue만 별도 대상으로 진행한다.
    - child issue가 없거나 모두 blocked/overlap이면 실행하지 말고 이유를 보고한다.
-5. 목적, 완료 기준, 작업 계획, 검증 계획이 불명확하면 구현하지 말고 `$issue-management`로 질문과 상태를 정리한다.
+5. 실제 구현할 source issue를 단일 구현 issue 또는 실행 가능한 child issue로 확정한다.
+   - source issue의 제목과 본문에서 `\b[A-Z][A-Z0-9]+-\d+\b`에 맞는 Jira key를 추출하고 중복을 제거한다. hub/parent의 key를 상속하지 않는다.
+   - 하나 이상이면 `jiraKeyStatus=required`, 없으면 `jiraKeyStatus=not-applicable`로 기록한다.
+   - `required`면 모든 key를 브랜치 이름과 PR 제목에 보존한다. `not-applicable`이면 Jira key가 없어도 성공으로 처리한다.
+6. 목적, 완료 기준, 작업 계획, 검증 계획이 불명확하면 구현하지 말고 `$issue-management`로 질문과 상태를 정리한다.
 
 ## 2. 관계와 충돌 Preflight
 
@@ -61,11 +67,14 @@ description: "GitHub 이슈를 브랜치, 구현, 검증, 커밋, 푸시, PR, �
 2. 브랜치를 만든다.
    - 기본 형식은 `codex/issue-<issue-number>-<short-slug>`다.
    - 저장소에 명시된 branch naming 규칙이 있으면 그 규칙을 우선한다.
+   - `jiraKeyStatus=required`면 source issue에서 추출한 모든 Jira key를 브랜치 이름에 그대로 포함한다.
+   - 새 브랜치는 첫 push 전에 `gh issue develop <source-issue> --base <base> --name <branch>`로 생성하여 source issue에 연결한다. 필요하면 생성 후 checkout한다.
+   - `gh issue develop --list <source-issue>`로 정확한 head branch가 연결되었는지 확인한다.
    - 이미 적절한 브랜치가 있으면 새로 만들지 말고 기존 브랜치와 PR을 확인한다.
+   - 기존 브랜치도 linked branch 목록에 없으면 코멘트로 대체하지 말고 차단 상태로 보고한다.
 3. 이슈의 작업 상태를 갱신한다.
    - 저장소가 ProjectV2를 쓰면 `In Progress` 또는 동등한 상태로 변경한다.
    - Project/상태 필드가 없거나 권한이 없으면 이슈 코멘트에 브랜치 링크와 작업 시작 사실을 남긴다.
-   - PR 본문에는 `Closes #<issue-number>`, `Fixes #<issue-number>`, 또는 저장소 관례에 맞는 연결 문구를 포함한다.
 
 ## 4. 구현
 
@@ -94,8 +103,18 @@ description: "GitHub 이슈를 브랜치, 구현, 검증, 커밋, 푸시, PR, �
 - `localDiffStatus`가 `ok-empty` 또는 `ok-changed`가 아니면 파일 충돌 판단을 ready로 보지 말고 원인을 확인한다.
 - 일반 push를 우선하고, rebase 후 필요한 경우에만 `--force-with-lease`를 사용하고 이유를 기록한다.
 - PR은 기본적으로 draft로 만든다. 사용자가 ready PR을 명시하거나 저장소 관례가 다르면 그 지시를 우선한다.
-- 본문 초반에 요약 작업 목록을 두고, 중요한 로직 변화, 검증 결과, 미검증/차단 항목, 이슈 연결 문구, preflight 요약을 포함한다.
-- GitHub Development 필드에 자동 반영되지 않으면 이슈 코멘트로 브랜치와 PR을 연결한다.
+- `gh api user --jq .login`으로 실행 계정을 확인하고 `gh pr create --assignee '@me'`로 지정한다. connector로 PR을 만들었으면 즉시 `gh pr edit <pr> --add-assignee '@me'`로 보정한다.
+- `jiraKeyStatus=required`면 source issue의 모든 Jira key를 PR 제목에 보존한다. `not-applicable`이면 Jira prefix를 만들지 않는다.
+- 본문 초반에 요약 작업 목록을 두고, 중요한 로직 변화, 검증 결과, 미검증/차단 항목, preflight 요약을 포함한다.
+- 실제 구현 source issue만 `Closes owner/repo#<number>`로 연결한다. hub/umbrella/parent issue는 `Refs owner/repo#<number>`로만 참조한다.
+- 생성 직후 `gh pr view <pr> --json assignees,closingIssuesReferences,title,headRefName,isDraft`와 `gh issue develop --list <source-issue>`로 다음 postcondition을 모두 확인한다.
+  - `assignees`에 실행 계정이 포함되어 있다.
+  - `closingIssuesReferences`에 source 구현 이슈가 포함되어 있다.
+  - linked branch 목록에 PR의 정확한 `headRefName`이 포함되어 있다.
+  - `jiraKeyStatus=required`일 때만 모든 Jira key가 `title`과 `headRefName`에 포함되어 있다.
+  - `jiraKeyStatus=required`일 때만 각 Jira issue의 Development에 해당 branch와 PR이 표시되는지 Atlassian connector/API로 확인한다. 즉시 확인되지 않으면 30초 간격으로 2회 더 조회한다. `not-applicable`이면 Jira 조회를 생략한다.
+- postcondition이 하나라도 실패하면 PR을 Draft로 유지하거나 `gh pr ready --undo`로 되돌리고 작업을 blocked로 보고한다. 이슈 코멘트는 Development 연결의 대체 수단으로 인정하지 않는다.
+- 리뷰 반영, PR 제목/본문/assignee 변경 뒤와 Ready/완료 판정 직전에 같은 postcondition 전체를 다시 조회한다.
 
 ## 7. 독립 리뷰와 수정 반영 루프
 
@@ -116,7 +135,7 @@ description: "GitHub 이슈를 브랜치, 구현, 검증, 커밋, 푸시, PR, �
 
 ## 8. Ready 전환과 마무리
 
-1. Draft PR이면 수정 요청이 없어진 뒤 Ready for review 전환 여부를 판단한다.
+1. Draft PR이면 수정 요청이 없어진 뒤 PR metadata postcondition 전체를 재검증하고 Ready for review 전환 여부를 판단한다.
 2. PR 본문이 오래되었으면 최종 검증 결과와 남은 리스크를 갱신한다.
 3. 이슈에는 현재 브랜치, PR, 리뷰 완료 상태를 코멘트로 남긴다.
 4. 최종 보고에는 이슈 번호, 브랜치, PR URL, 커밋 요약, 검증 결과, 리뷰 결과, 재작업 여부, Ready 전환 여부를 포함한다.

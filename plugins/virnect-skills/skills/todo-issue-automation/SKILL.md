@@ -85,12 +85,17 @@ renderer 출력은 저장된 automation의 `prompt`에 넣는 얇은 wrapper다.
    - worker prompt에는 이슈 번호, 예상 수정 범위, 충돌 금지 ownership, 검증 기대치, profile 기반 preflight 인자를 포함한다.
    - worker에게 `gh-issue-pr-review-loop`와 `issue-management`를 사용하도록 지시한다.
    - worker는 각자 이슈별 branch/worktree를 사용하고 다른 작업자의 변경을 되돌리지 않는다.
+   - worker는 `gh api user --jq .login`으로 실행 계정을 확인하고 PR 생성 시 `--assignee '@me'`로 지정한다. 다른 수단으로 생성했다면 `gh pr edit --add-assignee '@me'`로 즉시 보정한다.
+   - 새 branch는 첫 push 전에 `gh issue develop <issue> --base <base> --name <branch>`로 구현 대상 issue에 연결한다.
+   - source issue 제목과 본문에서 `\b[A-Z][A-Z0-9]+-\d+\b` Jira key가 확인되면 `jiraKeyStatus=required`, 없으면 GitHub-only 작업인 `jiraKeyStatus=not-applicable`로 기록한다. `not-applicable`은 Jira key 없이 성공할 수 있다.
 10. 결과를 수집해 보고한다.
    - bootstrap worktree/branch
    - In Progress와 active PR 수정 범위
    - Todo 후보와 제외 사유
    - 선택한 이슈와 선택 이유
-   - worker별 branch, PR URL, 커밋, 검증, GitHub review/comment URL, Ready 여부
+   - worker별 branch, PR URL, 커밋, 검증, GitHub review/comment URL, `jiraKeyStatus`, Ready 여부
+   - PR 생성 직후와 Ready/완료 판정 직전에 실행 계정 assignee, 구현 source issue(분해한 경우 child)의 `closingIssuesReferences`, linked branch를 확인한다. `jiraKeyStatus=required`일 때만 PR 제목/head branch의 모든 Jira key와 각 Jira issue Development의 branch/PR 동기화를 확인하며, Jira 동기화는 30초 간격으로 최대 3회 조회한다. `not-applicable`이면 Jira 조회를 생략한다.
+   - postcondition 하나라도 실패한 worker는 완료 또는 Ready로 집계하지 않고 Draft/blocked 상태와 실패 항목을 보고한다.
    - 실패/차단 명령과 다음 조치
 
 ## Worker Prompt 필수 내용
@@ -104,6 +109,12 @@ worker prompt에는 아래 정보를 빠뜨리지 않는다.
 - preflight helper 인자: profile `preflightArgs`
 - 사용할 Skill: `gh-issue-pr-review-loop`, 필요 시 `issue-management`
 - 검증 기대치: profile `validationRules`
+- 실행 GitHub 계정: `gh api user --jq .login` 결과를 확인하고 `gh pr create --assignee '@me'` 또는 `gh pr edit --add-assignee '@me'`로 PR assignee 지정
+- Development 연결: 첫 push 전에 `gh issue develop <issue> --base <base> --name <branch>` 실행
+- Jira 분류: source issue 제목/본문의 `\b[A-Z][A-Z0-9]+-\d+\b` key가 있으면 `jiraKeyStatus=required`, 없으면 `jiraKeyStatus=not-applicable`; 후자는 key 없이 성공 가능
+- PR 본문 연결: 구현 source issue(분해한 경우 child)만 `Closes`/`Fixes`, parent/hub issue는 `Refs`/`Part of`
+- PR postcondition: 생성 직후와 Ready/완료 직전에 실행 계정 assignee, 구현 source issue의 `closingIssuesReferences`, `gh issue develop --list <issue>`의 linked branch, `required`일 때만 PR 제목/head branch의 모든 Jira key와 각 Jira issue Development의 branch/PR 동기화(30초 간격 최대 3회); `not-applicable`이면 Jira 조회 생략
+- postcondition 실패 시 완료/Ready 보고 금지 및 Draft/blocked 유지
 - GitHub-visible 문구는 한국어
 - merge 금지
 

@@ -279,10 +279,13 @@ $actionSteps = if ($Action -eq "Register") {
 3. hub/parent issue는 직접 구현하지 않는다.
 4. 실행 가능한 child issue가 없고 hub/parent가 broad하면 해당 repo의 todoProfile로 todo-issue-automation broad parent 분해 정책을 따른다.
 5. 열린 blocker, partial preflight, ownership overlap이 있는 child issue는 실행하지 않는다.
-6. 실행 가능한 child issue만 각 repo worktree에서 gh-issue-pr-review-loop로 진행한다.
-7. 필요한 module branch/PR이 준비된 뒤 packageOverrides.setupCommands만 실행한다.
-8. packageOverrides.verifyCommands로 product local test 환경을 확인한다.
-9. product local override 변경 파일과 restoreCommands를 보고한다.
+6. 실행 가능한 child issue만 각 repo worktree에서 gh-issue-pr-review-loop로 진행한다. 각 worker는 첫 push 전에 ``gh issue develop <issue> --base <base> --name <branch>``로 source child issue에 branch를 연결하고, PR 생성 시 실행 ``gh`` 계정을 ``--assignee '@me'``로 지정한다.
+7. 각 worker에게 실행 환경의 gh 계정과 Assignees, source child issue의 Development branch/PR 연결, closingIssuesReferences, jiraKeyStatus=required|not-applicable, Jira key 목록과 조건부 key/Jira Development 검증 결과를 포함한 postcondition snapshot을 반환하게 한다.
+8. 생성 직후와 Ready/완료 판정 직전에 worker snapshot을 재조회해 실행 gh 계정이 Assignee인지와 모든 postcondition을 확인한다. source issue에 Jira key가 없으면 jiraKeyStatus=not-applicable로 성공하고 Jira 조회를 생략한다. key가 있으면 required로 두고 branch/PR 제목 보존과 각 Jira issue Development의 branch/PR 동기화를 30초 간격으로 최대 3회 검증한다.
+9. snapshot 누락이나 postcondition 조회/검증 실패가 있으면 해당 PR을 Draft/blocked로 유지하고 성공 또는 준비 완료로 집계하지 않는다. 이슈 코멘트는 Development 연결을 대신하지 않는다.
+10. metadata postcondition을 통과한 필요한 module branch/PR이 준비된 뒤 packageOverrides.setupCommands만 실행한다.
+11. packageOverrides.verifyCommands로 product local test 환경을 확인한다.
+12. repo별 postcondition snapshot, 실패 상태, product local override 변경 파일과 restoreCommands를 보고한다.
 "@
 }
 
