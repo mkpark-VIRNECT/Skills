@@ -26,6 +26,7 @@ Product 요구사항 하나가 여러 repository나 module package 변경으로 
 - 기존 단일 repo Skill 본문을 재해석하지 않는다. 이 Skill은 product hub 조율만 한다.
 - repo, Project, branch, ownership, validation, package override 값은 profile을 단일 진실원천으로 사용한다.
 - package manager별 설정 방법은 추측하지 말고 profile의 `packageOverrides` command만 실행한다.
+- Execute worker의 PR metadata는 `gh-issue-pr-review-loop` 계약을 그대로 적용하고, 이슈 코멘트를 GitHub Development 연결의 대체 수단으로 인정하지 않는다.
 - merge는 수행하지 않는다.
 - product local test override는 product issue 범위가 아니면 commit하지 않는다.
 - active PR, 열린 `blocked-by`, ownership overlap, partial preflight는 착수 차단 또는 보류 사유로 보고한다.
@@ -84,6 +85,9 @@ renderer:
 6. repo별 PR을 진행한다.
    - child issue는 각 repo worktree에서 `gh-issue-pr-review-loop`로 Draft PR까지 진행한다.
    - repo별 Todo 큐에서 추가 후보를 뽑아야 하면 해당 repo의 `todoProfile`로 `todo-issue-automation`을 실행한다.
+   - 각 worker는 실행 환경의 `gh` 계정과 PR metadata postcondition snapshot을 반환한다. snapshot에는 Assignees, source child issue의 Development branch/PR 연결, `closingIssuesReferences`, `jiraKeyStatus=required|not-applicable`, Jira key 목록과 조건부 key/Jira Development 검증 결과를 포함한다.
+   - source issue에 Jira key가 없으면 `jiraKeyStatus=not-applicable`로 정상 처리하고 Jira 조회를 생략한다. key가 있으면 `required`로 두고 branch/PR 제목 보존과 각 Jira issue Development의 branch/PR 동기화를 검증한다.
+   - orchestrator는 생성 직후와 Ready/완료 판정 직전에 worker snapshot을 재조회해 실행 `gh` 계정이 Assignee인지와 모든 postcondition을 확인한다. `required` Jira 동기화는 30초 간격으로 최대 3회 조회하고, 누락이나 조회 실패가 있으면 해당 PR을 Draft/blocked로 유지해 성공 또는 준비 완료로 집계하지 않는다.
 7. product local test setup을 준비한다.
    - 필요한 module branch/PR이 준비된 뒤 `packageOverrides.setupCommands`만 실행한다.
    - `verifyCommands`로 product repo가 module branch를 바라보는지 확인한다.
@@ -91,6 +95,7 @@ renderer:
    - `restoreCommands`와 변경된 local config path를 최종 보고에 포함한다.
 8. 결과를 보고한다.
    - hub issue, child issue, 관계, 보류 사유, repo별 branch/PR, 검증 결과를 보고한다.
+   - repo별 실행 `gh` 계정, Assignees, Development 연결, `jiraKeyStatus`, Jira key 검증, `closingIssuesReferences`, postcondition 성공/실패 snapshot을 함께 보고한다.
    - product local test 환경의 module branch 세팅 상태와 restore 방법을 보고한다.
    - merge하지 않았음을 명시한다.
 
@@ -103,5 +108,7 @@ renderer:
 - profile 초기화에서 확인되지 않은 module/override/ownership 값을 추측해 JSON으로 쓰지 않았는가?
 - 모든 child issue가 repo별 독립 완료 기준과 검증 계획을 가지는가?
 - 열린 `blocked-by`, active PR overlap, partial preflight를 충돌 없음으로 해석하지 않았는가?
+- Execute worker의 PR metadata snapshot을 재조회했고, 실패한 child를 성공으로 집계하지 않았는가?
+- GitHub-only child의 `jiraKeyStatus=not-applicable`을 Jira key 누락 실패로 오판하지 않았는가?
 - product local override는 profile command만 사용했는가?
 - product local override 변경이 의도치 않게 commit 대상에 들어가지 않았는가?

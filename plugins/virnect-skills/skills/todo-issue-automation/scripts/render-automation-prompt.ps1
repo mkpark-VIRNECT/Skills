@@ -230,9 +230,15 @@ ProjectV2 Todo 이슈 자동화를 실행한다.
 5. child 등록 뒤 Project/relationship을 재조회하고 실행 대상은 child issue만 삼는다. child PR close keyword는 child에만 쓰고 parent는 Refs 또는 Part of로만 참조한다.
 6. profile ownership rule로 충돌 없는 Todo 후보를 선별한다.
 7. 선별된 이슈를 profile maxWorkers 범위에서 worker에게 위임한다.
-8. worker prompt에는 profile 기반 preflight 인자, 예상 수정 범위, 충돌 금지 ownership, 검증 기대치, 사용할 Skill 경로를 포함한다.
-9. worker 결과를 모아 profile reporting rule에 맞춰 최종 보고한다.
-10. 작업 대상이 없으면 split-required 조건부 child 등록 예외를 제외하고 새 이슈를 만들지 말고, 어떤 기준으로 대상이 없다고 판단했는지만 보고한다.
+8. worker prompt에는 profile 기반 preflight 인자, 예상 수정 범위, 충돌 금지 ownership, 검증 기대치, 사용할 Skill 경로와 아래 PR 메타데이터 계약을 포함한다.
+   - ``gh api user --jq .login`` 실행 계정을 확인하고 ``gh pr create --assignee '@me'`` 또는 ``gh pr edit --add-assignee '@me'``로 PR assignee를 지정한다.
+   - 새 branch는 첫 push 전에 ``gh issue develop <issue> --base <base> --name <branch>``로 구현 source issue에 연결한다.
+   - source issue 제목/본문에 ``\b[A-Z][A-Z0-9]+-\d+\b`` Jira key가 있으면 ``jiraKeyStatus=required``, 없으면 GitHub-only인 ``jiraKeyStatus=not-applicable``로 기록한다. ``not-applicable``은 key 없이 성공할 수 있다.
+   - 구현 source issue(분해한 경우 child)만 PR 본문의 ``Closes``/``Fixes``로 연결하고 parent/hub issue는 ``Refs``/``Part of``로만 참조한다.
+9. PR 생성 직후와 Ready/완료 판정 직전에 실행 계정 assignee, 구현 source issue의 ``closingIssuesReferences``, ``gh issue develop --list <issue>``의 linked branch를 검증한다. ``jiraKeyStatus=required``일 때만 PR 제목/head branch의 모든 Jira key와 각 Jira issue Development의 branch/PR 동기화를 30초 간격으로 최대 3회 검증하고, ``not-applicable``이면 Jira 조회를 생략한다.
+10. postcondition 하나라도 실패한 worker는 완료 또는 Ready로 집계하지 않고 Draft/blocked 상태와 실패 항목을 보고한다.
+11. worker 결과에 branch, PR URL, 커밋, 검증, review/comment URL, ``jiraKeyStatus``, Ready 여부를 포함해 profile reporting rule에 맞춰 최종 보고한다.
+12. 작업 대상이 없으면 split-required 조건부 child 등록 예외를 제외하고 새 이슈를 만들지 말고, 어떤 기준으로 대상이 없다고 판단했는지만 보고한다.
 "@
 
 if ($Json) {
