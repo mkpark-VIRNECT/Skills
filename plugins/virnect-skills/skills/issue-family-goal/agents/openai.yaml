@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue Family Goal"
+  short_description: "하위 이슈 전체를 순차 stacked PR goal로 완료합니다."
+  default_prompt: "$issue-family-goal로 parent issue의 direct sub-issue를 순서대로 PR과 리뷰 완료까지 진행해줘."

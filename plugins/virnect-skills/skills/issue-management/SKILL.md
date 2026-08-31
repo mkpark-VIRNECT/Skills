@@ -15,6 +15,7 @@ description: "요구사항을 GitHub 이슈로 등록하거나 기존 이슈를 
 - 관계, 하위 이슈 분리, blocked-by, 충돌 위험 판단이 애매하면 `references/relationship-policy.md`를 읽는다.
 - GitHub 검색 제한, ProjectV2 Status/Size/Estimate, GraphQL 조회/변경/검증이 필요하면 `references/github-query-policy.md`를 읽는다.
 - 관계/충돌 preflight가 필요하면 `scripts/gh-issue-preflight.ps1`를 우선 사용한다.
+- 현재 collaboration mode가 Plan Mode이면 sibling `../grill-me/SKILL.md`를 읽고 질문 계약을 따른다.
 - product repo-local `.codex/multi-repo-issue-orchestration/profiles/*.json`, 로컬 Codex profile, 또는 명시된 multi-repo profile이 발견되면 product-only 판단 전에 profile과 sibling Skill `multi-repo-issue-orchestration`의 `references/profile-schema.md`를 먼저 읽는다.
 - product/module repository 영향, product hub issue, repo별 child issue, product local package override 설정 계획이 필요하면 sibling Skill인 `multi-repo-issue-orchestration`을 helper로 읽는다.
 
@@ -36,6 +37,18 @@ description: "요구사항을 GitHub 이슈로 등록하거나 기존 이슈를 
 - 예상 작업이 18시간을 넘으면 더 작은 작업 단위로 나누어 이슈를 등록한다. 각 생성 이슈는 독립 완료 기준과 `Estimate <= 18`을 가져야 한다.
 - `Size`는 Project field의 실제 타입/옵션과 최근 유사 이슈 관례로 결정한다. 신뢰할 수 없으면 값을 지어내지 말고 등록 전에 질문한다.
 - `Backlog`는 금지 기본값이다. 사용자 지시나 repo 문서로 `Todo`의 동등 상태임이 확인된 경우에만 사용한다.
+
+## Plan Mode + Grill-Me
+
+현재 collaboration mode가 Plan Mode이면 `$grill-me`를 자동으로 사용한다.
+
+- 코드, 문서, 기존 issue/PR, Project 설정으로 확인할 수 있는 사실을 먼저 조사한다.
+- 조사 후에도 실제 이슈 구조나 계약을 바꾸는 결정이 남을 때만 `request_user_input`으로 가장 중요한 질문 하나를 묻는다. 이미 결정 완료된 요구사항에는 질문을 만들지 않는다.
+- 모든 requirement group의 목적, scope/non-scope, 계약, 완료 기준, 검증 계획, 관계와 필수 metadata가 확정될 때까지 질문을 한 번에 하나씩 이어간다.
+- Plan Mode에서는 issue 생성·갱신, Project field, relationship mutation을 실행하지 않는다.
+- 결정이 끝나면 `statusPlan`, `metadataPlan`, `rootCauseOwnershipPlan`, `expectedNativeRelations`와 검증 기준을 포함한 결정 완료 계획을 `<proposed_plan>`으로 반환한다.
+
+Plan Mode가 아니면 아래 기존 등록 workflow와 mutation gate를 그대로 적용한다.
 
 ## 질문 지침
 

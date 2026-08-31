@@ -20,11 +20,13 @@ flowchart LR
   K --> L["한국어 결과 보고"]
 ```
 
-사용자가 직접 고르는 기본 진입점은 둘이다. 이슈 등록은 `issue-management`, 작업 실행은 `gh-issue-pr-review-loop`로 요청한다. 단일 repo인지 multi repo인지는 스킬이 판단한다.
+사용자는 이슈 등록에 `issue-management`, 단일 이슈 실행에 `gh-issue-pr-review-loop`를 사용한다. 계획의 미확정 분기는 `grill-me`, 같은 repo의 parent issue 전체 순차 실행은 `issue-family-goal`을 사용한다. 단일 repo인지 multi repo인지는 스킬이 판단한다.
 
 | 스킬 | 사용하는 시점 | 결과물 |
 |------|---------------|--------|
+| `grill-me` | Plan Mode에서 계획의 결정 분기를 해소할 때 | 근거 확인 후 한 번에 하나씩 제시되는 질문 카드 |
 | `issue-management` | 요구사항을 이슈로 등록하거나 기존 이슈를 정리할 때 | 작업 가능한 GitHub 이슈, 상태, 관계, 검증 계획 |
+| `issue-family-goal` | 같은 repo의 parent와 direct sub-issue 전체를 순차 실행할 때 | review-clear stacked PR chain과 family 최종 감사 |
 | `gh-issue-pr-review-loop` | 특정 이슈를 실제 코드 변경과 PR로 끝낼 때 | 브랜치, 커밋, PR, 리뷰 코멘트, 수정 반영 결과 |
 | `todo-issue-automation` | ProjectV2 `Todo` 큐에서 충돌 없는 작업을 반복 선별할 때 | worker 위임 결과, 제외 사유, PR/검증/리뷰 보고 |
 | `multi-repo-issue-orchestration` | 내부 helper 또는 고급 디버깅이 필요할 때 | product hub issue, repo별 child issue, product local package override 판단 보조 |
@@ -42,7 +44,17 @@ flowchart LR
 5. 충돌 없는 이슈만 worker에게 넘긴다.
 6. worker는 `gh-issue-pr-review-loop`로 PR과 리뷰 루프까지 닫는다.
 
-실제 사용에서 중요한 기준은 "이슈 상태"보다 "실제 작업 충돌 가능성"이다. `Todo` 상태여도 열린 `blocked-by`가 있거나, active PR이 같은 화면, DTO, service, repository, fixture, generated file을 수정 중이면 위임하지 않는다.
+실제 사용에서 중요한 기준은 "이슈 상태"보다 "실제 작업 충돌 가능성"이다. 일반 실행에서는 `Todo` 상태여도 열린 `blocked-by`가 있거나, active PR이 같은 화면, DTO, service, repository, fixture, generated file을 수정 중이면 위임하지 않는다.
+
+### Plan Mode 이슈 준비
+
+Plan Mode에서 `$issue-management`를 사용하면 sibling `$grill-me`가 자동 적용된다. 코드·문서·기존 이슈로 확인 가능한 사실을 먼저 조사하고, 남은 제품 결정만 질문 카드로 한 번에 하나씩 묻는다. 모든 결정이 끝나기 전에는 GitHub를 변경하지 않으며, 마지막에는 metadata와 native relationship을 포함한 결정 완료 계획만 반환한다.
+
+### Parent issue family goal
+
+`$issue-family-goal`은 같은 저장소의 native direct sub-issue만 대상으로 한다. 등록 전에 child/dependency/기존 PR snapshot을 보여주고 승인을 받은 뒤 goal을 생성한다. 첫 child는 기본 branch, 이후 child는 직전 review-clear PR branch를 base로 연결하며 모든 child를 한 개의 stacked PR chain으로 직렬화한다.
+
+goal-local open blocker는 최신 reviewed head가 stack ancestry에 포함된 경우에만 예외로 인정한다. 외부 blocker와 partial preflight는 계속 차단한다. 모든 child의 최신 SHA 리뷰와 unresolved thread 0건을 감사하면 goal을 완료하지만 merge는 사람이 순서대로 수행한다.
 
 ## 0. Product hub issue 자동 분류
 
@@ -273,6 +285,7 @@ if (-not (Test-Path -LiteralPath $preflight)) {
 해석 규칙은 보수적으로 둔다.
 
 - 열린 `blocked-by`가 있으면 시작하지 않는다.
+- `issue-family-goal`의 frozen child에서 최신 reviewed predecessor head와 stack ancestry가 검증된 경우만 예외다.
 - `partial=true` 또는 `skippedLookups`가 있으면 충돌 없음으로 보지 않는다.
 - active PR이 같은 화면, DTO, service, repository, fixture, generated file을 건드리면 병렬 착수를 보류한다.
 - PR 발행 직전에는 `PrConflict`로 local diff와 active PR 변경 파일을 다시 비교한다.
@@ -409,6 +422,8 @@ Codex에서는 플러그인 구조가 다음과 같아야 한다.
    ├─ .codex-plugin\plugin.json
    └─ skills
       ├─ issue-management\SKILL.md
+      ├─ grill-me\SKILL.md
+      ├─ issue-family-goal\SKILL.md
       ├─ gh-issue-pr-review-loop\SKILL.md
       ├─ todo-issue-automation\SKILL.md
       ├─ multi-repo-issue-orchestration\SKILL.md
@@ -443,6 +458,14 @@ Codex 프롬프트에서는 스킬명을 직접 호출한다.
 
 ```text
 $issue-management로 아래 요구사항을 이슈화해줘.
+```
+
+```text
+$grill-me로 이 이슈 계획의 미확정 분기를 하나씩 확인해줘.
+```
+
+```text
+$issue-family-goal로 owner/repo#123의 direct sub-issue를 순차 stacked PR로 진행해줘.
 ```
 
 ```text

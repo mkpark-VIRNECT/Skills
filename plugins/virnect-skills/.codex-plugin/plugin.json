@@ -1,7 +1,7 @@
 {
   "name": "virnect-skills",
-  "version": "0.2.6",
-  "description": "Codex skills maintained by VIRNECT for issue management and GitHub PR workflows.",
+  "version": "0.2.7",
+  "description": "Codex skills maintained by VIRNECT for issue planning, family goals, and GitHub PR workflows.",
   "author": {
     "name": "VIRNECT",
     "email": "pmk@virnect.com",
@@ -20,7 +20,7 @@
   "interface": {
     "displayName": "VIRNECT Skills",
     "shortDescription": "Issue, PR, and planning workflow skills",
-    "longDescription": "Codex skills for Korean issue management, GitHub PR review loops, Todo automation orchestration, multi-repo hub issue workflows, and ASCII diagrams.",
+    "longDescription": "Codex skills for Korean issue planning interviews, issue management, sequential issue-family goals, GitHub PR review loops, Todo automation, multi-repo hub workflows, and ASCII diagrams.",
     "developerName": "VIRNECT",
     "category": "Coding",
     "capabilities": [
@@ -29,7 +29,9 @@
     ],
     "websiteURL": "https://github.com/mkpark-VIRNECT/Skills",
     "defaultPrompt": [
+      "Stress-test an issue plan with Grill Me.",
       "Create a Korean GitHub issue plan.",
+      "Run a single-repo parent issue family as a sequential goal.",
       "Run an issue-to-PR workflow.",
       "Run profile-based Todo issue automation.",
       "Register product requirements as issues without choosing single or multi repo.",
