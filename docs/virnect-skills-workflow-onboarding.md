@@ -420,6 +420,8 @@ Codex에서는 플러그인 구조가 다음과 같아야 한다.
 ├─ .agents\plugins\marketplace.json
 └─ plugins\virnect-skills
    ├─ .codex-plugin\plugin.json
+   ├─ scripts
+   │  └─ Test-VirnectSkills.ps1
    └─ skills
       ├─ issue-management\SKILL.md
       ├─ grill-me\SKILL.md
@@ -445,6 +447,21 @@ gh auth status
 gh repo view --json nameWithOwner,defaultBranchRef
 git status --short --branch
 ```
+
+### 공통 검증 진입점
+
+저장소 루트에서 다음 wrapper 하나로 plugin의 모든 skill과 plugin/marketplace JSON을 검증한다.
+
+```powershell
+.\plugins\virnect-skills\scripts\Test-VirnectSkills.ps1
+```
+
+정상 결과는 모든 skill의 `Skill is valid!`와 마지막 `Validated <count> skills and 2 JSON manifests.`다. validator를 찾지 못하거나 어느 skill이 실패하면 non-zero로 종료한다.
+
+재현 시나리오:
+
+- [issue-family-goal stacked PR 재현 시나리오](./issue-family-goal-stacked-pr-scenario.md)
+- [issue-management Plan Mode + Grill-Me 재현 시나리오](./issue-management-plan-mode-grill-me-scenario.md)
 
 ProjectV2와 relationship까지 사용하려면 GitHub 계정 또는 GitHub App에 다음 권한이 필요하다.
 
@@ -644,3 +661,7 @@ Todo 자동화 실행 전:
 3. ProjectV2 `Todo` 큐에서 active PR과 ownership 충돌을 기준으로 제외 후보와 선택 후보를 설명할 수 있다.
 4. Codex에서는 스킬 호출 프롬프트로, Claude에서는 `CLAUDE.md`와 custom command로 같은 운영 의도를 실행할 수 있다.
 5. merge가 자동화 범위에 포함되지 않는다는 점과 모든 GitHub-visible 문구가 한국어라는 점을 설명할 수 있다.
+6. 공통 wrapper로 전체 skill과 plugin/marketplace JSON 검증을 한 번에 통과시킬 수 있다.
+7. Plan Mode의 모호한 요구와 명확한 요구 모두에서 질문 계약과 GitHub mutation 0건을 확인할 수 있다.
+8. family의 모든 child PR에서 계획된 base/head, latest-HEAD review, unresolved thread 0건, blocking review 0건과 metadata postcondition을 확인할 수 있다.
+9. stack의 모든 인접 branch에 `git merge-base --is-ancestor`를 실행해 연속 ancestry를 증명하고, merge와 issue close를 수행하지 않았음을 확인할 수 있다.
