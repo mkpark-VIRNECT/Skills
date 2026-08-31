@@ -21,6 +21,7 @@ if (-not (Test-Path -LiteralPath $preflight)) {
 해석 규칙:
 
 - 열린 `blockedBy`가 있으면 새 브랜치를 만들거나 `In Progress`로 바꾸지 말고 선행 조건을 보고한다.
+- 단, `$issue-family-goal`이 명시적으로 전달한 frozen child와 stack base가 있고 모든 open blocker PR의 현재 head가 review-clear이며 `git merge-base --is-ancestor <blocker-head> <stack-base-head>`가 성공하고 `Full partial=false`인 경우에만 goal-local predecessor 예외를 적용한다. snapshot 밖 blocker나 검증 누락은 예외 대상이 아니다.
 - 같은 화면, 모델, DTO, service, repository, protocol, generated file, E2E fixture를 active PR이 수정 중이면 병렬 착수를 보류하거나 PR 본문에 충돌 위험을 명시한다.
 - `partial=true` 또는 `skippedLookups`가 있으면 조회 생략 결과다. `softConflicts=[]`나 `overlappingPrs=[]`를 충돌 없음으로 해석하지 않는다.
 - helper를 사용할 수 없으면 target issue의 `parent`, `subIssues`, `blockedBy`, `blocking`, Project status, 연결 active PR 파일군을 직접 최소 조회한다.

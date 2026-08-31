@@ -48,13 +48,20 @@ description: "GitHub 이슈를 브랜치, 구현, 검증, 커밋, 푸시, PR, �
    - source issue의 제목과 본문에서 `\b[A-Z][A-Z0-9]+-\d+\b`에 맞는 Jira key를 추출하고 중복을 제거한다. hub/parent의 key를 상속하지 않는다.
    - 하나 이상이면 `jiraKeyStatus=required`, 없으면 `jiraKeyStatus=not-applicable`로 기록한다.
    - `required`면 모든 key를 브랜치 이름과 PR 제목에 보존한다. `not-applicable`이면 Jira key가 없어도 성공으로 처리한다.
+   - `$issue-family-goal`이 위임했다면 `familyGoalContext`로 repository, parent issue, frozen child 번호, source issue, stack base branch/head SHA, review-clear predecessor issue/PR/head SHA를 받는다. 이 값이 없으면 stacked-family 예외를 추론하지 않는다.
 6. 목적, 완료 기준, 작업 계획, 검증 계획이 불명확하면 구현하지 말고 `$issue-management`로 질문과 상태를 정리한다.
 
 ## 2. 관계와 충돌 Preflight
 
 - 가능하면 `$issue-management`의 helper를 사용한다. 상세 경로와 mode는 `references/preflight-usage.md`를 따른다.
 - 착수 후보 확인은 `Startup`, 상태 변경 직전은 `StatusTransition`, PR 발행 직전 또는 변경 범위 확대 후는 `PrConflict`, 보고/PR 본문/리뷰 위임용 완전 컨텍스트는 `Full` mode를 사용한다.
-- 열린 `blockedBy`가 있으면 새 브랜치를 만들거나 `In Progress`로 바꾸지 말고 선행 조건을 보고한다.
+- 열린 `blockedBy`가 있으면 기본적으로 새 브랜치를 만들거나 `In Progress`로 바꾸지 말고 선행 조건을 보고한다.
+- 예외는 명시적인 `familyGoalContext`가 있고 다음 조건을 모두 만족하는 goal-local predecessor뿐이다.
+  - blocker가 같은 repository와 parent의 frozen child에 포함된다.
+  - blocker PR의 현재 head SHA가 전달된 reviewed head SHA와 같고, 최신 head 기준 unresolved thread와 blocking review가 0건이다.
+  - stack base의 현재 head가 전달된 SHA와 같고 `git merge-base --is-ancestor <blocker-head> <stack-base-head>`가 성공한다.
+  - snapshot 밖의 open blocker가 없고 `Full` preflight가 `partial=false`다.
+- 예외를 적용하면 blocker/PR/reviewed SHA/stack base/ancestry 검증을 PR 본문과 최종 보고에 남긴다. 하나라도 확인되지 않으면 일반 open-blocker hard stop으로 돌아간다.
 - active PR과 같은 화면, 모델, DTO, service, repository, protocol, generated file, E2E fixture를 수정하면 병렬 착수를 보류하거나 PR 본문에 충돌 위험을 명시한다.
 - `partial=true` 또는 `skippedLookups`가 있으면 `softConflicts=[]`나 `overlappingPrs=[]`를 충돌 없음으로 해석하지 않는다.
 
@@ -68,9 +75,10 @@ description: "GitHub 이슈를 브랜치, 구현, 검증, 커밋, 푸시, PR, �
    - 기본 형식은 `codex/issue-<issue-number>-<short-slug>`다.
    - 저장소에 명시된 branch naming 규칙이 있으면 그 규칙을 우선한다.
    - `jiraKeyStatus=required`면 source issue에서 추출한 모든 Jira key를 브랜치 이름에 그대로 포함한다.
+   - 일반 실행의 `<base>`는 저장소 기본 branch다. `familyGoalContext`가 있으면 검증된 `stackBaseBranch`를 `<base>`로 사용한다.
    - 새 브랜치는 첫 push 전에 `gh issue develop <source-issue> --base <base> --name <branch>`로 생성하여 source issue에 연결한다. 필요하면 생성 후 checkout한다.
    - `gh issue develop --list <source-issue>`로 정확한 head branch가 연결되었는지 확인한다.
-   - 이미 적절한 브랜치가 있으면 새로 만들지 말고 기존 브랜치와 PR을 확인한다.
+   - 이미 적절한 브랜치가 있으면 새로 만들지 말고 기존 브랜치와 PR을 확인한다. stacked-family 실행에서 기존 PR base나 ancestry가 context와 다르면 임의 retarget, rebase, force-push하지 말고 차단 상태로 보고한다.
    - 기존 브랜치도 linked branch 목록에 없으면 코멘트로 대체하지 말고 차단 상태로 보고한다.
 3. 이슈의 작업 상태를 갱신한다.
    - 저장소가 ProjectV2를 쓰면 `In Progress` 또는 동등한 상태로 변경한다.
@@ -103,6 +111,7 @@ description: "GitHub 이슈를 브랜치, 구현, 검증, 커밋, 푸시, PR, �
 - `localDiffStatus`가 `ok-empty` 또는 `ok-changed`가 아니면 파일 충돌 판단을 ready로 보지 말고 원인을 확인한다.
 - 일반 push를 우선하고, rebase 후 필요한 경우에만 `--force-with-lease`를 사용하고 이유를 기록한다.
 - PR은 기본적으로 draft로 만든다. 사용자가 ready PR을 명시하거나 저장소 관례가 다르면 그 지시를 우선한다.
+- `familyGoalContext`가 있으면 PR의 base를 검증된 `stackBaseBranch`로 명시하고, 생성 직후 `baseRefName`도 함께 재조회한다.
 - `gh api user --jq .login`으로 실행 계정을 확인하고 `gh pr create --assignee '@me'`로 지정한다. connector로 PR을 만들었으면 즉시 `gh pr edit <pr> --add-assignee '@me'`로 보정한다.
 - `jiraKeyStatus=required`면 source issue의 모든 Jira key를 PR 제목에 보존한다. `not-applicable`이면 Jira prefix를 만들지 않는다.
 - 본문 초반에 요약 작업 목록을 두고, 중요한 로직 변화, 검증 결과, 미검증/차단 항목, preflight 요약을 포함한다.
@@ -130,6 +139,7 @@ description: "GitHub 이슈를 브랜치, 구현, 검증, 커밋, 푸시, PR, �
 루프 종료 조건:
 
 - 남은 blocking 수정 요청이 없다.
+- stacked-family child는 독립 리뷰가 최신 PR head를 대상으로 하고 unresolved review thread와 blocking review가 0건임을 live 재조회했다.
 - 반복되는 의견이 요구사항 판단 문제라면 이슈를 `Issue Review` 또는 동등한 상태로 되돌리고 사용자 확인 질문을 남긴다.
 - GitHub 코멘트 작성이 실패하면 로컬 요약만으로 완료 처리하지 말고 실패 사유와 재시도 방법을 보고한다.
 

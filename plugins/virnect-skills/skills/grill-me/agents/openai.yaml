@@ -1,0 +1,4 @@
+interface:
+  display_name: "Grill Me"
+  short_description: "계획의 결정 분기를 질문 카드로 하나씩 해소합니다."
+  default_prompt: "$grill-me로 이 계획의 미확정 분기를 근거부터 확인하며 하나씩 질문해줘."
