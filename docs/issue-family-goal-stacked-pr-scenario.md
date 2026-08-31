@@ -79,6 +79,8 @@ gh pr view <pr> --json baseRefName,headRefName,headRefOid,assignees,closingIssue
 
 GitHub가 PR 생성 뒤 `linkedBranches`에서 기존 branch를 제거한 경우 같은 이름으로 `gh issue develop`을 재시도하지 않는다. PR의 `closingIssuesReferences`, 정확한 `headRefName`/`headRefOid`, PR 생성 전 연결 결과를 Development 증거로 남긴다.
 
+반대로 predecessor branch를 base로 한 stacked PR은 본문에 full repository `Closes`를 넣어도 `closingIssuesReferences`가 비고 linked branch만 유지될 수 있다. 이때 strict postcondition을 통과한 것으로 간주하지 않는다. platform-equivalent fallback을 goal snapshot에서 명시적으로 승인받기 전까지 PR은 Draft, issue는 `Issue Review`로 유지한다.
+
 ## 4. Blocker 판정
 
 | blocker | 처리 |
